@@ -112,6 +112,7 @@ def main():
             }
         }
         ray.init(runtime_env=runtime_env)
+        # ray.init(address="127.0.0.1:6379", runtime_env=runtime_env)
 
     runner = Runner.remote()
     ray.get(runner.run.remote(ppo_config))

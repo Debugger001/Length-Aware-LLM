@@ -20,6 +20,7 @@ from typing import Literal, Optional, Union
 import numpy as np
 import psutil
 import torch
+from torch import bfloat16
 import torch.distributed as dist
 from accelerate import init_empty_weights
 from codetiming import Timer
@@ -233,9 +234,12 @@ class FSDPWorker(Worker):
         print_model_size(model)
         print_gpu_memory_usage("After huggingface model init")
         mixed_precision = MixedPrecision(
-            param_dtype=PrecisionType.to_dtype(fsdp_config.mp_param_dtype),
-            reduce_dtype=PrecisionType.to_dtype(fsdp_config.mp_reduce_dtype),
-            buffer_dtype=PrecisionType.to_dtype(fsdp_config.mp_buffer_dtype),
+            # param_dtype=PrecisionType.to_dtype(fsdp_config.mp_param_dtype),
+            # reduce_dtype=PrecisionType.to_dtype(fsdp_config.mp_reduce_dtype),
+            # buffer_dtype=PrecisionType.to_dtype(fsdp_config.mp_buffer_dtype),
+            param_dtype=bfloat16,
+            reduce_dtype=bfloat16,
+            buffer_dtype=bfloat16
         )
         auto_wrap_policy = get_fsdp_wrap_policy(model)
         self.print_rank0(f"FSDP wrap policy: {auto_wrap_policy}.")

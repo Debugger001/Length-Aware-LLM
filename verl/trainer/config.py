@@ -69,6 +69,7 @@ class AlgorithmConfig:
     kl_type: str = "fixed"
     kl_horizon: float = 0.0
     kl_target: float = 0.0
+    dual_lr: float = 1e-2
 
 
 @dataclass

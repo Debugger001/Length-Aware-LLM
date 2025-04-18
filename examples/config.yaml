@@ -21,6 +21,7 @@ algorithm:
   use_kl_loss: true
   kl_penalty: low_var_kl
   kl_coef: 1.0e-2
+  dual_lr: 1.0e-2
 
 worker:
   actor:
@@ -52,7 +53,7 @@ worker:
     n: 5
     temperature: 1.0
     top_p: 0.99
-    gpu_memory_utilization: 0.6
+    gpu_memory_utilization: 0.85
     enforce_eager: false
     enable_chunked_prefill: false
     tensor_parallel_size: 2
