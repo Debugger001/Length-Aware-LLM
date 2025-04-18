@@ -520,9 +520,9 @@ class RayPPOTrainer:
                         target_lengths = torch.randint(low=100, high=350, size=(len(prompts),))
                         for i, prompt in enumerate(prompts):
                             prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
-                            print("*"*50)
-                            print(prompts[i])
-                            print("+"*50)
+                            # print("*"*50)
+                            # print(prompts[i])
+                            # print("+"*50)
                         tokenized = self.tokenizer(prompts, padding=True, return_tensors="pt", truncation=True)
                         gen_batch.batch["input_ids"] = tokenized["input_ids"]
                         gen_batch.batch["attention_mask"] = tokenized["attention_mask"]
@@ -641,6 +641,13 @@ class RayPPOTrainer:
                     actual_lengths = torch.sum(response_mask, dim=1)
                     length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
                     avg_penalty = length_penalty.mean().item()
+
+                    print("#"*50)
+                    print("actual_lengths:", actual_lengths)
+                    print("target_lengths:", target_lengths)
+                    print("length_penalty:", length_penalty)
+                    print(f"avg_penalty: {avg_penalty}")
+                    print("*"*50)
 
                     self.lambda_len = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_penalty - 1.0), 0.0)
 
