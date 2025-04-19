@@ -642,7 +642,7 @@ class RayPPOTrainer:
                         metrics.update(actor_metrics)
                         
                     # update lambda for length penalty
-                    target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
+                    # target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
                     response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
                     actual_lengths = torch.sum(response_mask, dim=1)
                     length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
