@@ -552,6 +552,11 @@ class RayPPOTrainer:
                     batch = batch.union(gen_batch_output)
                     batch.non_tensor_batch.pop("multi_modal_data", None)
 
+                    batch.meta_info["target_lengths"] = target_lengths.tolist()
+
+                    # if "target_lengths" in gen_batch.meta_info:
+                        # batch.meta_info["target_lengths"] = gen_batch.meta_info["target_lengths"]
+
                     # compute reward
                     with _timer("reward", timing_raw):
                         if self.use_reward_model:
