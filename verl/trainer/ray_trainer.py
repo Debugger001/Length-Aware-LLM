@@ -552,6 +552,7 @@ class RayPPOTrainer:
                     batch = batch.union(gen_batch_output)
                     batch.non_tensor_batch.pop("multi_modal_data", None)
 
+                    target_lengths = target_lengths.repeat_interleave(self.config.worker.rollout.n)
                     batch.meta_info["target_lengths"] = target_lengths.tolist()
 
                     # if "target_lengths" in gen_batch.meta_info:
