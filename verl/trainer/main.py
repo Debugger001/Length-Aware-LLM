@@ -111,7 +111,8 @@ def main():
                 "PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:False",
             }
         }
-        ray.init(runtime_env=runtime_env)
+        ray.init()
+        # ray.init(runtime_env=runtime_env)
         # ray.init(address="127.0.0.1:6379", runtime_env=runtime_env)
 
     runner = Runner.remote()
