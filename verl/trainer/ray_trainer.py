@@ -193,7 +193,7 @@ class RayPPOTrainer:
         ray_worker_group_cls: Type[RayWorkerGroup] = RayWorkerGroup,
         reward_fn: Optional[Callable[[DataProto], Tuple[torch.Tensor, Dict[str, List[float]]]]] = None,
         val_reward_fn: Optional[Callable[[DataProto], Tuple[torch.Tensor, Dict[str, List[float]]]]] = None,
-        lambda_len = 1,
+        lambda_len = 0.05,
     ):
         self.tokenizer = tokenizer
         self.processor = processor
@@ -517,7 +517,7 @@ class RayPPOTrainer:
                     with _timer("gen", timing_raw):  # wg: worker group
                         # prompts = gen_batch.non_tensor_batch["prompts"]
                         prompts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in gen_batch.batch["input_ids"]]
-                        target_lengths = torch.randint(low=275, high=310, size=(len(prompts),))
+                        target_lengths = torch.randint(low=330, high=370, size=(len(prompts),))
                         for i, prompt in enumerate(prompts):
                             prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
                             # print("*"*50)
@@ -573,7 +573,7 @@ class RayPPOTrainer:
                         length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
                         penalty = length_penalty[:, None].expand(-1, reward_tensor.shape[1])
 
-                        max_penalty = 0.5
+                        max_penalty = 0.15
                         clipped_penalty = torch.clamp(self.lambda_len * penalty, max=max_penalty)
 
                         reward_tensor = reward_tensor - clipped_penalty
