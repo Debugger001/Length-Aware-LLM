@@ -517,7 +517,7 @@ class RayPPOTrainer:
                     with _timer("gen", timing_raw):  # wg: worker group
                         # prompts = gen_batch.non_tensor_batch["prompts"]
                         prompts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in gen_batch.batch["input_ids"]]
-                        target_lengths = torch.randint(low=100, high=350, size=(len(prompts),))
+                        target_lengths = torch.randint(low=275, high=310, size=(len(prompts),))
                         for i, prompt in enumerate(prompts):
                             prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
                             # print("*"*50)
@@ -573,7 +573,10 @@ class RayPPOTrainer:
                         length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
                         penalty = length_penalty[:, None].expand(-1, reward_tensor.shape[1])
 
-                        reward_tensor = reward_tensor - self.lambda_len * penalty
+                        max_penalty = 0.5
+                        clipped_penalty = torch.clamp(self.lambda_len * penalty, max_penalty)
+
+                        reward_tensor = reward_tensor - clipped_penalty
 
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {
@@ -642,7 +645,6 @@ class RayPPOTrainer:
                         metrics.update(actor_metrics)
                         
                     # update lambda for length penalty
-                    # target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
                     response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
                     actual_lengths = torch.sum(response_mask, dim=1)
                     length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
