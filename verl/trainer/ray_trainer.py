@@ -574,7 +574,7 @@ class RayPPOTrainer:
                         penalty = length_penalty[:, None].expand(-1, reward_tensor.shape[1])
 
                         max_penalty = 0.5
-                        clipped_penalty = torch.clamp(self.lambda_len * penalty, max_penalty)
+                        clipped_penalty = torch.clamp(self.lambda_len * penalty, max=max_penalty)
 
                         reward_tensor = reward_tensor - clipped_penalty
 
