@@ -531,7 +531,7 @@ class RayPPOTrainer:
                                 sampled = int(np.random.normal(loc = mean, scale = 15))
                             else:
                                 mean = self.config.algorithm.high_mean
-                                sampled = int(np.random.normal(loc = mean, scale = 40))
+                                sampled = int(np.random.normal(loc = mean, scale = 80))
                             sampled = max(sampled, 90)
                             target_lengths.append(sampled)
                         target_lengths = torch.tensor(target_lengths, device=gen_batch.batch["input_ids"].device).long()
@@ -682,7 +682,13 @@ class RayPPOTrainer:
                     actual_lengths = torch.sum(response_mask, dim=1)
                     length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
                     avg_act_targ = length_penalty.mean().item()
-                    avg_penalty = clipped_penalty.mean().item()
+                    avg_penalty_w0 = clipped_penalty.mean().item()
+                    # mean of *actual* penalties (ignore zeros)
+                    nonzero_mask = clipped_penalty != 0
+                    if nonzero_mask.any():
+                        avg_penalty = clipped_penalty[nonzero_mask].mean().item()
+                    else:
+                        avg_penalty = 0.0
 
                     print("#"*50)
                     print("actual_lengths:", actual_lengths)
@@ -704,6 +710,7 @@ class RayPPOTrainer:
                                             if correct_bool.any() else 0.0,
                         "len/penalty_incorrect": length_penalty[~correct_bool].mean().item(),
                         "len/clip_rate": (penalty > self.config.algorithm.max_len_penalty).float().mean().item(),
+                        "len/avg_penalty_w0": avg_penalty_w0,
                         # optional: save raw reward before penalty if you cached it
                         # "reward/raw_mean": raw_reward.mean().item(),
                     })
