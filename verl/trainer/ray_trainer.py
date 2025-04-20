@@ -547,6 +547,7 @@ class RayPPOTrainer:
                         gen_batch.batch["attention_mask"] = tokenized["attention_mask"]
                         gen_batch.meta_info["target_lengths"] = target_lengths.tolist()
                         gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
+                        print("responses shape:", gen_batch_output.batch["responses"].shape)
 
                     if self.config.algorithm.adv_estimator == "remax":
                         with _timer("gen_max", timing_raw):
