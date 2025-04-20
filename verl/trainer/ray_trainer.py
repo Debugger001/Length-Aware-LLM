@@ -517,9 +517,28 @@ class RayPPOTrainer:
                     with _timer("gen", timing_raw):  # wg: worker group
                         # prompts = gen_batch.non_tensor_batch["prompts"]
                         prompts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in gen_batch.batch["input_ids"]]
-                        target_lengths = torch.randint(low=330, high=370, size=(len(prompts),))
+                        # target_lengths = torch.randint(low=330, high=370, size=(len(prompts),))
+
+                        # generate prompt-length-aware target lengths
+                        # target_length_means = [150, 300, 350, 500, 800]
+                        for ids in gen_batch.batch["input_ids"]:
+                            prompt_len = len(ids)
+                            if prompt_len < 100:
+                                mean = 125
+                                sampled = int(np.random.normal(loc = mean, scale = 10))
+                            elif prompt_len <= 300:
+                                mean = 300
+                                sampled = int(np.random.normal(loc = mean, scale = 15))
+                            else:
+                                mean = 600
+                                sampled = int(np.random.normal(loc = mean, scale = 40))
+                            sampled = max(sampled, 90)
+                            target_lengths.append(sampled)
+                        target_lengths = torch.tensor(target_lengths, device=gen_batch.batch["input_ids"].device).long()
+
                         for i, prompt in enumerate(prompts):
-                            prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
+                            # prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
+                            prompts[i] = prompt + f"\n\nThink in {target_lengths[i]} tokens."
                             # print("*"*50)
                             # print(prompts[i])
                             # print("+"*50)
@@ -570,11 +589,20 @@ class RayPPOTrainer:
                         target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
                         response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
                         actual_lengths = torch.sum(response_mask, dim=1)
-                        length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
-                        penalty = length_penalty[:, None].expand(-1, reward_tensor.shape[1])
 
-                        max_penalty = 0.15
-                        clipped_penalty = torch.clamp(self.lambda_len * penalty, max=max_penalty)
+                        correct_bool = (reward_tensor.sum(dim=1) > 0)  # 1 if any token has reward
+                        correct = correct_bool.float()
+                        over_length_bool = (actual_lengths > target_lengths)
+                        over_length = over_length_bool.float()
+                        # Penalty mask: only apply when correct AND too long
+                        penalty_mask = correct * over_length 
+                        penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
+
+                        length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
+                        penalty = length_penalty[:,None].expand_as(reward_tensor)
+
+                        max_penalty = 0.05
+                        clipped_penalty = torch.clamp(penalty_mask * self.lambda_len * penalty, min=0.0, max=max_penalty)
 
                         reward_tensor = reward_tensor - clipped_penalty
 
@@ -656,8 +684,27 @@ class RayPPOTrainer:
                     print("length_penalty:", length_penalty)
                     print(f"avg_penalty: {avg_penalty}")
                     print("*"*50)
-
-                    self.lambda_len = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_penalty - 1.0), 0.0)
+                    metrics["len/avg_penalty"] = avg_penalty
+                    metrics.update({
+                        "len/actual_mean": actual_lengths.float().mean().item(),
+                        "len/target_mean": target_lengths.float().mean().item(),
+                        "len/ratio_mean": (actual_lengths.float() / target_lengths).mean().item(),
+                        "len/frac_over": (actual_lengths > target_lengths).float().mean().item(),
+                        "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
+                        "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
+                        "len/lambda": self.lambda_len,
+                        "len/penalty_correct": length_penalty[correct_bool].mean().item()
+                                            if correct_bool.any() else 0.0,
+                        "len/penalty_incorrect": length_penalty[~correct_bool].mean().item(),
+                        "len/clip_rate": (penalty > max_penalty).float().mean().item(),
+                        # optional: save raw reward before penalty if you cached it
+                        # "reward/raw_mean": raw_reward.mean().item(),
+                    })
+                    
+                    beta = 0.9
+                    lambda_old = self.lambda_len
+                    lambda_new = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_penalty - 1.0), 0.0)
+                    self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
 
 
                     # validate
