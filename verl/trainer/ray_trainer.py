@@ -602,8 +602,9 @@ class RayPPOTrainer:
 
                         length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
                         penalty = length_penalty[:,None].expand_as(reward_tensor)
+                        penalty = penalty_mask * self.lambda_len * penalty
 
-                        clipped_penalty = torch.clamp(penalty_mask * self.lambda_len * penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
+                        clipped_penalty = torch.clamp(penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
 
                         reward_tensor = reward_tensor - clipped_penalty
 
@@ -677,28 +678,29 @@ class RayPPOTrainer:
                     response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
                     actual_lengths = torch.sum(response_mask, dim=1)
                     length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
-                    avg_penalty = length_penalty.mean().item()
+                    avg_act_targ = length_penalty.mean().item()
+                    avg_penalty = clipped_penalty.mean().item()
 
                     print("#"*50)
                     print("actual_lengths:", actual_lengths)
                     print("target_lengths:", target_lengths)
-                    print("length_penalty:", length_penalty)
+                    print("avg actual/target:", avg_act_targ)
                     print(f"avg_penalty: {avg_penalty}")
                     print("*"*50)
-                    metrics["len/avg_penalty"] = avg_penalty
                     metrics.update({
                         "len/actual_mean": actual_lengths.float().mean().item(),
                         "len/target_mean": target_lengths.float().mean().item(),
-                        "len/ratio_mean": (actual_lengths.float() / target_lengths).mean().item(),
                         "len/frac_over": (actual_lengths > target_lengths).float().mean().item(),
                         # "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
                         # "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
                         "len/ezprompt_rate": ezprompt.mean().item(),
                         "len/lambda": self.lambda_len,
+                        "len/avg_actl tgt": avg_act_targ,
+                        "len/avg_penalty": avg_penalty,
                         "len/penalty_correct": length_penalty[correct_bool].mean().item()
                                             if correct_bool.any() else 0.0,
                         "len/penalty_incorrect": length_penalty[~correct_bool].mean().item(),
-                        "len/clip_rate": (penalty > max_penalty).float().mean().item(),
+                        "len/clip_rate": (penalty > self.config.algorithm.max_len_penalty).float().mean().item(),
                         # optional: save raw reward before penalty if you cached it
                         # "reward/raw_mean": raw_reward.mean().item(),
                     })
