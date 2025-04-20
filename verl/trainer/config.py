@@ -70,6 +70,12 @@ class AlgorithmConfig:
     kl_horizon: float = 0.0
     kl_target: float = 0.0
     dual_lr: float = 1e-2
+    lambda_len_init: 6.0e-3
+    high_mean: 800
+    mid_mean: 500
+    low_mean: 125
+    ezprompt_ratio: 3
+    max_len_penalty: 0.05
 
 
 @dataclass
