@@ -23,8 +23,8 @@ algorithm:
   kl_coef: 1.0e-2
   dual_lr: 1.0e-4
   lambda_len_init: 6.0e-3
-  high_mean: 800
-  mid_mean: 500
+  high_mean: 700
+  mid_mean: 400
   low_mean: 125
   ezprompt_ratio: 3
   max_len_penalty: 0.05
