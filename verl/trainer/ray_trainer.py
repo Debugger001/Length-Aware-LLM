@@ -521,6 +521,7 @@ class RayPPOTrainer:
 
                         # generate prompt-length-aware target lengths
                         # target_length_means = [150, 300, 350, 500, 800]
+                        target_lengths = []
                         for ids in gen_batch.batch["input_ids"]:
                             prompt_len = len(ids)
                             if prompt_len < 100:
