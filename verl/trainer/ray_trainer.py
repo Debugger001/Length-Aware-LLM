@@ -193,7 +193,6 @@ class RayPPOTrainer:
         ray_worker_group_cls: Type[RayWorkerGroup] = RayWorkerGroup,
         reward_fn: Optional[Callable[[DataProto], Tuple[torch.Tensor, Dict[str, List[float]]]]] = None,
         val_reward_fn: Optional[Callable[[DataProto], Tuple[torch.Tensor, Dict[str, List[float]]]]] = None,
-        lambda_len = 0.05,
     ):
         self.tokenizer = tokenizer
         self.processor = processor
@@ -202,7 +201,7 @@ class RayPPOTrainer:
         self.config = config
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
-        self.lambda_len = lambda_len
+        self.lambda_len = self.config.algorithm.lambda_len_init
 
         self.hybrid_engine = config.worker.hybrid_engine
         if self.hybrid_engine:
@@ -525,13 +524,13 @@ class RayPPOTrainer:
                         for ids in gen_batch.batch["input_ids"]:
                             prompt_len = len(ids)
                             if prompt_len < 100:
-                                mean = 125
+                                mean = self.config.algorithm.low_mean
                                 sampled = int(np.random.normal(loc = mean, scale = 10))
-                            elif prompt_len <= 300:
-                                mean = 300
+                            elif prompt_len <= 400:
+                                mean = self.config.algorithm.mid_mean
                                 sampled = int(np.random.normal(loc = mean, scale = 15))
                             else:
-                                mean = 600
+                                mean = self.config.algorithm.high_mean
                                 sampled = int(np.random.normal(loc = mean, scale = 40))
                             sampled = max(sampled, 90)
                             target_lengths.append(sampled)
@@ -595,15 +594,16 @@ class RayPPOTrainer:
                         correct = correct_bool.float()
                         over_length_bool = (actual_lengths > target_lengths)
                         over_length = over_length_bool.float()
-                        # Penalty mask: only apply when correct AND too long
-                        penalty_mask = correct * over_length 
+                        ezprompt_bool = (actual_lengths < self.config.algorithm.ezprompt_ratio * target_lengths)
+                        ezprompt = ezprompt_bool.float()
+                        # Penalty mask: only apply when correct AND too long AND ez to solve
+                        penalty_mask = correct * over_length * ezprompt
                         penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
 
                         length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
                         penalty = length_penalty[:,None].expand_as(reward_tensor)
 
-                        max_penalty = 0.05
-                        clipped_penalty = torch.clamp(penalty_mask * self.lambda_len * penalty, min=0.0, max=max_penalty)
+                        clipped_penalty = torch.clamp(penalty_mask * self.lambda_len * penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
 
                         reward_tensor = reward_tensor - clipped_penalty
 
@@ -691,8 +691,9 @@ class RayPPOTrainer:
                         "len/target_mean": target_lengths.float().mean().item(),
                         "len/ratio_mean": (actual_lengths.float() / target_lengths).mean().item(),
                         "len/frac_over": (actual_lengths > target_lengths).float().mean().item(),
-                        "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
-                        "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
+                        # "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
+                        # "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
+                        "len/ezprompt_rate": ezprompt.mean().item(),
                         "len/lambda": self.lambda_len,
                         "len/penalty_correct": length_penalty[correct_bool].mean().item()
                                             if correct_bool.any() else 0.0,
