@@ -547,7 +547,6 @@ class RayPPOTrainer:
                         gen_batch.batch["attention_mask"] = tokenized["attention_mask"]
                         gen_batch.meta_info["target_lengths"] = target_lengths.tolist()
                         gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
-                        print("responses shape:", gen_batch_output.batch["responses"].shape)
 
                     if self.config.algorithm.adv_estimator == "remax":
                         with _timer("gen_max", timing_raw):
@@ -602,7 +601,10 @@ class RayPPOTrainer:
                         penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
 
                         length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
-                        penalty = length_penalty[:,None].expand_as(reward_tensor)
+                        # create a zero tensor and scatter the per‑sample penalty onto last‑token positions
+                        penalty = torch.zeros_like(reward_tensor)                                # (B, T)
+                        last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
+                        penalty.scatter_(1, last_idx, length_penalty.unsqueeze(1))               # put penalty at final token
                         penalty = penalty_mask * self.lambda_len * penalty
 
                         clipped_penalty = torch.clamp(penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
