@@ -519,22 +519,33 @@ class RayPPOTrainer:
                         # target_lengths = torch.randint(low=330, high=370, size=(len(prompts),))
 
                         # generate prompt-length-aware target lengths
-                        # target_length_means = [150, 300, 350, 500, 800]
-                        target_lengths = []
-                        for ids in gen_batch.batch["input_ids"]:
-                            prompt_len = len(ids)
-                            if prompt_len < 100:
-                                mean = self.config.algorithm.low_mean
-                                sampled = int(np.random.normal(loc = mean, scale = 10))
-                            elif prompt_len <= 400:
-                                mean = self.config.algorithm.mid_mean
-                                sampled = int(np.random.normal(loc = mean, scale = 15))
-                            else:
-                                mean = self.config.algorithm.high_mean
-                                sampled = int(np.random.normal(loc = mean, scale = 80))
-                            sampled = max(sampled, 90)
-                            target_lengths.append(sampled)
-                        target_lengths = torch.tensor(target_lengths, device=gen_batch.batch["input_ids"].device).long()
+                        # # target_length_means = [150, 300, 350, 500, 800]
+                        # target_lengths = []
+                        # for ids in gen_batch.batch["input_ids"]:
+                        #     prompt_len = len(ids)
+                        #     if prompt_len < 100:
+                        #         mean = self.config.algorithm.low_mean
+                        #         sampled = int(np.random.normal(loc = mean, scale = 10))
+                        #     elif prompt_len <= 400:
+                        #         mean = self.config.algorithm.mid_mean
+                        #         sampled = int(np.random.normal(loc = mean, scale = 15))
+                        #     else:
+                        #         mean = self.config.algorithm.high_mean
+                        #         sampled = int(np.random.normal(loc = mean, scale = 80))
+                        #     sampled = max(sampled, 90)
+                        #     target_lengths.append(sampled)
+                        # target_lengths = torch.tensor(target_lengths, device=gen_batch.batch["input_ids"].device).long()
+
+                        # single Beta sampler (α=3, β=6.5)
+                        num_prompts = len(gen_batch.batch["input_ids"])
+                        beta_low = self.config.algorithm.beta_distr_low
+                        beta_high = self.config.algorithm.beta_distr_high
+                        width = beta_high - beta_low
+                        alpha = self.config.algorithm.distr_alpha
+                        beta_param = self.config.algorithm.distr_beta
+
+                        sampled = beta_low + np.random.beta(alpha, beta_param, size=num_prompts) * width
+                        target_lengths = torch.tensor(sampled, device=gen_batch.batch["input_ids"].device).long()
 
                         for i, prompt in enumerate(prompts):
                             # prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
@@ -717,6 +728,12 @@ class RayPPOTrainer:
                     
                     beta = 0.9
                     lambda_old = self.lambda_len
+                    # exclude extreme cases where actual / target ≥ 2  **or** ≤ 0.3
+                    valid_mask = (length_penalty < self.config.algorithm.ezprompt_ratio) & (length_penalty > 0.3)
+                    if valid_mask.any():
+                        avg_act_targ = length_penalty[valid_mask].mean().item()
+                    else:
+                        avg_act_targ = 2.0
                     lambda_new = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_penalty - 1.0), 0.0)
                     self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
 

@@ -21,12 +21,16 @@ algorithm:
   use_kl_loss: true
   kl_penalty: low_var_kl
   kl_coef: 1.0e-2
-  dual_lr: 1.0e-4
-  lambda_len_init: 6.0e-3
-  high_mean: 800
-  mid_mean: 500
-  low_mean: 125
-  ezprompt_ratio: 3
+  dual_lr: 5.0e-4
+  lambda_len_init: 1.0e-2
+  # high_mean: 700
+  # mid_mean: 400
+  # low_mean: 125
+  beta_distr_high: 1000
+  beta_distr_low: 50
+  distr_alpha: 3.0
+  distr_beta: 6.5
+  ezprompt_ratio: 2
   max_len_penalty: 0.05
 
 worker:

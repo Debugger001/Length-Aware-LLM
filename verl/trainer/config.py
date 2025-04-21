@@ -71,9 +71,13 @@ class AlgorithmConfig:
     kl_target: float = 0.0
     dual_lr: float = 1e-2
     lambda_len_init: float = 6.0e-3
-    high_mean: float = 800.0
-    mid_mean: float = 500.0
-    low_mean: float = 125.0
+    # high_mean: float = 800.0
+    # mid_mean: float = 500.0
+    # low_mean: float = 125.0
+    beta_distr_high: float = 1000.0
+    beta_distr_low: float = 50.0
+    distr_alpha: float = 3.0
+    distr_beta: float = 6.5
     ezprompt_ratio: float = 3.0
     max_len_penalty: float = 0.05
 
