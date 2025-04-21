@@ -30,7 +30,7 @@ algorithm:
   beta_distr_low: 50
   distr_alpha: 3.0
   distr_beta: 6.5
-  ezprompt_ratio: 1.5
+  ezprompt_ratio: 1.8
   shortresp_ratio: 0.3
   max_len_penalty: 0.05
 
