@@ -721,7 +721,7 @@ class RayPPOTrainer:
                                             if correct_bool.any() else 0.0,
                         "len/penalty_incorrect": length_penalty[~correct_bool].mean().item(),
                         "len/clip_rate": (penalty > self.config.algorithm.max_len_penalty).float().mean().item(),
-                        "len/avg_penalty_w0": avg_penalty_w0,
+                        # "len/avg_penalty_w0": avg_penalty_w0,
                         # optional: save raw reward before penalty if you cached it
                         # "reward/raw_mean": raw_reward.mean().item(),
                     })
@@ -740,6 +740,7 @@ class RayPPOTrainer:
 
                     # log fraction of samples that contribute to the dual update
                     metrics["len/valid_ratio"] = valid_mask.float().mean().item()
+                    metrics["len/valid_act_targ"] = avg_act_targ
 
 
                     # validate
