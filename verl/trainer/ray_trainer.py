@@ -726,7 +726,7 @@ class RayPPOTrainer:
                         # "reward/raw_mean": raw_reward.mean().item(),
                     })
                     
-                    beta = 0.9
+                    # beta = 0.9
                     lambda_old = self.lambda_len
                     # exclude extreme cases where actual / target ≥ 2  **or** ≤ 0.3
                     valid_mask = (length_penalty < self.config.algorithm.ezprompt_ratio) & (length_penalty > 0.3)
@@ -734,8 +734,12 @@ class RayPPOTrainer:
                         avg_act_targ = length_penalty[valid_mask].mean().item()
                     else:
                         avg_act_targ = 2.0
-                    lambda_new = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_penalty - 1.0), 0.0)
-                    self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
+                    lambda_new = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_act_targ - 1.0), 0.0)
+                    # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
+                    self.lambda_len = lambda_new
+
+                    # log fraction of samples that contribute to the dual update
+                    metrics["len/valid_ratio"] = valid_mask.float().mean().item()
 
 
                     # validate
