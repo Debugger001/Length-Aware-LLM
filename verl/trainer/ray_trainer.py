@@ -728,8 +728,8 @@ class RayPPOTrainer:
                     
                     # beta = 0.9
                     lambda_old = self.lambda_len
-                    # exclude extreme cases where actual / target ≥ 2  **or** ≤ 0.3
-                    valid_mask = (length_penalty < self.config.algorithm.ezprompt_ratio) & (length_penalty > 0.3)
+                    # exclude extreme cases where actual / target ≥ ezprompt_ratio  **or** ≤ shortresp_ratio
+                    valid_mask = (length_penalty < self.config.algorithm.ezprompt_ratio) & (length_penalty > self.config.algorithm.shortresp_ratio)
                     if valid_mask.any():
                         avg_act_targ = length_penalty[valid_mask].mean().item()
                     else:

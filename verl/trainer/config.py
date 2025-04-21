@@ -78,7 +78,8 @@ class AlgorithmConfig:
     beta_distr_low: float = 50.0
     distr_alpha: float = 3.0
     distr_beta: float = 6.5
-    ezprompt_ratio: float = 3.0
+    ezprompt_ratio: float = 1.5
+    shortresp_ratio: float = 0.3
     max_len_penalty: float = 0.05
 
 
