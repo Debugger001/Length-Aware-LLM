@@ -675,6 +675,15 @@ class RayPPOTrainer:
                             gamma=self.config.algorithm.gamma,
                             lam=self.config.algorithm.lam,
                         )
+                        # grab the raw advantage tensor (shape: [B, T] for token‑level or [B] for sequence‑level)
+                        adv = batch.batch["advantages"]
+
+                        # flatten it
+                        adv_flat = adv.reshape(-1)
+
+                        # compute and log both mean and std
+                        metrics["adv/mean"] = adv_flat.mean().item()
+                        metrics["adv/std"]  = adv_flat.std().item()
 
                     # update critic
                     if self.use_critic:
