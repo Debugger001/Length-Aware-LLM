@@ -601,7 +601,7 @@ class RayPPOTrainer:
                         response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
                         actual_lengths = torch.sum(response_mask, dim=1)
 
-                        correct_bool = (reward_tensor.sum(dim=1) > 0)  # 1 if any token has reward
+                        correct_bool = (reward_tensor.sum(dim=1) > 0.5)  # 1 if any token has (accuracy) reward
                         correct = correct_bool.float()
                         over_length_bool = (actual_lengths > target_lengths)
                         over_length = over_length_bool.float()

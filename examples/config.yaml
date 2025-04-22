@@ -28,8 +28,8 @@ algorithm:
   # low_mean: 125
   beta_distr_high: 1000
   beta_distr_low: 50
-  distr_alpha: 3.0
-  distr_beta: 6.5
+  distr_alpha: 8.0
+  distr_beta: 17.0
   ezprompt_ratio: 1.8
   shortresp_ratio: 0.4
   max_len_penalty: 0.05
