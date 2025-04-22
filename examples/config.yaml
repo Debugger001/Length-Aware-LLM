@@ -21,8 +21,8 @@ algorithm:
   use_kl_loss: true
   kl_penalty: low_var_kl
   kl_coef: 1.0e-2
-  dual_lr: 1.0e-2
-  lambda_len_init: 1.0e-2
+  dual_lr: 2.0e-3
+  lambda_len_init: 5.0e-3
   # high_mean: 700
   # mid_mean: 400
   # low_mean: 125
