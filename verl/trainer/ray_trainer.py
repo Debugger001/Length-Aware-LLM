@@ -601,14 +601,18 @@ class RayPPOTrainer:
                         response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
                         actual_lengths = torch.sum(response_mask, dim=1)
 
-                        correct_bool = (reward_tensor.sum(dim=1) > 0.5)  # 1 if any token has (accuracy) reward
+                        correct_bool = (reward_tensor.sum(dim=1) >= 0.5)  # 1 if any token has (accuracy) reward
                         correct = correct_bool.float()
+                        incorrect_bool = (reward_tensor.sum(dim=1) < 0.5)
+                        incorrect = incorrect_bool.float()
                         over_length_bool = (actual_lengths > target_lengths)
                         over_length = over_length_bool.float()
+                        too_long_bool = (actual_lengths > target_lengths * (self.config.algorithm.ezprompt_ratio + 0.7))
+                        too_long = too_long_bool.float()
                         ezprompt_bool = (actual_lengths < self.config.algorithm.ezprompt_ratio * target_lengths)
                         ezprompt = ezprompt_bool.float()
-                        # Penalty mask: only apply when correct AND too long AND ez to solve
-                        penalty_mask = correct * over_length * ezprompt
+                        # Penalty mask: only apply when (correct AND too long AND target not too low) OR (incorrect AND tooooooo long)
+                        penalty_mask = correct * over_length * ezprompt + incorrect * too_long
                         penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
 
                         length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
@@ -713,7 +717,8 @@ class RayPPOTrainer:
                         "len/frac_over": (actual_lengths > target_lengths).float().mean().item(),
                         # "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
                         # "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
-                        "len/ezprompt_rate": ezprompt.mean().item(),
+                        # "len/ezprompt_rate": ezprompt.mean().item(),
+                        "len/penalty_ratio": penalty_mask.mean().item(),
                         "len/lambda": self.lambda_len,
                         "len/avg_actl tgt": avg_act_targ,
                         "len/avg_penalty": avg_penalty,
