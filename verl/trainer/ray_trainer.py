@@ -620,11 +620,20 @@ class RayPPOTrainer:
                         penalty = torch.zeros_like(reward_tensor)                                # (B, T)
                         last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
                         penalty.scatter_(1, last_idx, length_penalty.unsqueeze(1))               # put penalty at final token
+
+                        # test
+                        last_token_rewards = reward_tensor.sum(dim=1, keepdim=True)
+                        reconstructed_reward = torch.zeros_like(reward_tensor)
+                        reconstructed_reward.scatter_(1, last_idx, last_token_rewards)
+
+
                         penalty = penalty_mask * self.lambda_len * penalty
 
                         clipped_penalty = torch.clamp(penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
 
-                        reward_tensor = reward_tensor - clipped_penalty
+                        # reward_tensor = reward_tensor - clipped_penalty
+
+                        reward_tensor = reconstructed_reward
 
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {
