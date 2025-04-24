@@ -588,13 +588,40 @@ class RayPPOTrainer:
                     # if "target_lengths" in gen_batch.meta_info:
                         # batch.meta_info["target_lengths"] = gen_batch.meta_info["target_lengths"]
 
+                    # balance the number of valid tokens on each dp rank.
+                    # Note that this breaks the order of data inside the batch.
+                    # Please take care when you implement group based adv computation such as GRPO and rloo
+                    self._balance_batch(batch, metrics=metrics)
+
+                    # compute global_valid tokens
+                    batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
+
                     # compute reward
                     with _timer("reward", timing_raw):
-                        if self.use_reward_model:
-                            raise NotImplementedError("Reward model is not supported yet.")
-
                         # we combine with rule-based rm
-                        reward_tensor, reward_metrics = self.reward_fn(batch)
+                        # reward_tensor, reward_metrics = self.reward_fn(batch)
+                        reward_ref = self.reward_fn.compute_reward.remote(batch)
+                    
+                    # recompute old_log_probs
+                    with _timer("old", timing_raw):
+                        old_log_probs = self.actor_rollout_wg.compute_log_probs(batch)
+                        batch = batch.union(old_log_probs)
+
+                    # compute ref_log_probs
+                    if self.use_reference_policy:
+                        with _timer("ref", timing_raw):
+                            ref_log_probs = self.ref_policy_wg.compute_ref_log_probs(batch)
+                            batch = batch.union(ref_log_probs)
+
+                    # compute values
+                    if self.use_critic:
+                        with _timer("values", timing_raw):
+                            values = self.critic_wg.compute_values(batch)
+                            batch = batch.union(values)
+
+                    with timer("penalty", timing_raw):   
+                        # get token level scores     
+                        reward_tensor, reward_metrics = ray.get(reward_ref)
                         
                         # add length penalty here to reward
                         target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
@@ -622,49 +649,23 @@ class RayPPOTrainer:
                         penalty.scatter_(1, last_idx, length_penalty.unsqueeze(1))               # put penalty at final token
 
                         # test
-                        last_token_rewards = reward_tensor.sum(dim=1, keepdim=True)
-                        reconstructed_reward = torch.zeros_like(reward_tensor)
-                        reconstructed_reward.scatter_(1, last_idx, last_token_rewards)
-
+                        # last_token_rewards = reward_tensor.sum(dim=1, keepdim=True)
+                        # reconstructed_reward = torch.zeros_like(reward_tensor)
+                        # reconstructed_reward.scatter_(1, last_idx, last_token_rewards)
 
                         penalty = penalty_mask * self.lambda_len * penalty
 
                         clipped_penalty = torch.clamp(penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
 
-                        # reward_tensor = reward_tensor - clipped_penalty
+                        reward_tensor = reward_tensor - clipped_penalty
 
-                        reward_tensor = reconstructed_reward
+                        # reward_tensor = reconstructed_reward
 
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {
                             f"reward/{key}": value for key, value in reduce_metrics(reward_metrics).items()
                         }
                         metrics.update(reward_metrics)
-
-                    # balance the number of valid tokens on each dp rank.
-                    # Note that this breaks the order of data inside the batch.
-                    # Please take care when you implement group based adv computation such as GRPO and rloo
-                    self._balance_batch(batch, metrics=metrics)
-
-                    # compute global_valid tokens
-                    batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
-
-                    # recompute old_log_probs
-                    with _timer("old", timing_raw):
-                        old_log_probs = self.actor_rollout_wg.compute_log_probs(batch)
-                        batch = batch.union(old_log_probs)
-
-                    # compute ref_log_probs
-                    if self.use_reference_policy:
-                        with _timer("ref", timing_raw):
-                            ref_log_probs = self.ref_policy_wg.compute_ref_log_probs(batch)
-                            batch = batch.union(ref_log_probs)
-
-                    # compute values
-                    if self.use_critic:
-                        with _timer("values", timing_raw):
-                            values = self.critic_wg.compute_values(batch)
-                            batch = batch.union(values)
 
                     with _timer("adv", timing_raw):
                         # apply kl penalty if available
