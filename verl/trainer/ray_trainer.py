@@ -684,6 +684,61 @@ class RayPPOTrainer:
                         actor_metrics = reduce_metrics(actor_output.non_tensor_batch)
                         metrics.update(actor_metrics)
 
+                    # update lambda for length penalty
+                    response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
+                    actual_lengths = torch.sum(response_mask, dim=1)
+                    length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
+                    avg_act_targ = length_penalty.mean().item()
+                    avg_penalty_w0 = clipped_penalty.mean().item()
+                    # mean of *actual* penalties (ignore zeros)
+                    nonzero_mask = clipped_penalty != 0
+                    if nonzero_mask.any():
+                        avg_penalty = clipped_penalty[nonzero_mask].mean().item()
+                    else:
+                        avg_penalty = 0.0
+
+                    print("#"*50)
+                    print("actual_lengths:", actual_lengths)
+                    print("target_lengths:", target_lengths)
+                    print("avg actual/target:", avg_act_targ)
+                    print(f"avg_penalty: {avg_penalty}")
+                    print("*"*50)
+                    metrics.update({
+                        "len/actual_mean": actual_lengths.float().mean().item(),
+                        "len/target_mean": target_lengths.float().mean().item(),
+                        "len/frac_over": (actual_lengths > target_lengths).float().mean().item(),
+                        # "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
+                        # "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
+                        # "len/ezprompt_rate": ezprompt.mean().item(),
+                        "len/penalty_ratio": penalty_mask.mean().item(),
+                        "len/lambda": self.lambda_len,
+                        "len/avg_actl tgt": avg_act_targ,
+                        "len/avg_penalty": avg_penalty,
+                        "len/penalty_correct": length_penalty[correct_bool].mean().item()
+                                            if correct_bool.any() else 0.0,
+                        "len/penalty_incorrect": length_penalty[~correct_bool].mean().item(),
+                        "len/clip_rate": (penalty > self.config.algorithm.max_len_penalty).float().mean().item(),
+                        # "len/avg_penalty_w0": avg_penalty_w0,
+                        # optional: save raw reward before penalty if you cached it
+                        # "reward/raw_mean": raw_reward.mean().item(),
+                    })
+
+                    # beta = 0.9
+                    lambda_old = self.lambda_len
+                    # exclude extreme cases where actual / target ≥ ezprompt_ratio  **or** ≤ shortresp_ratio
+                    valid_mask = (length_penalty < self.config.algorithm.ezprompt_ratio) & (length_penalty > self.config.algorithm.shortresp_ratio)
+                    if valid_mask.any():
+                        avg_act_targ = length_penalty[valid_mask].mean().item()
+                    else:
+                        avg_act_targ = 2.0
+                    lambda_new = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_act_targ - 1.0), 0.0)
+                    # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
+                    self.lambda_len = lambda_new
+
+                    # log fraction of samples that contribute to the dual update
+                    metrics["len/valid_ratio"] = valid_mask.float().mean().item()
+                    metrics["len/valid_act_targ"] = avg_act_targ
+
                     # validate
                     if (
                         self.val_reward_fn is not None
