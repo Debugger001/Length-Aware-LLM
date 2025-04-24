@@ -496,18 +496,61 @@ class RayPPOTrainer:
 
                 with timer("step", timing_raw):
                     # generate a batch
-                    with timer("gen", timing_raw):  # wg: worker group
+                    with _timer("gen", timing_raw):  # wg: worker group
+                        # prompts = gen_batch.non_tensor_batch["prompts"]
+                        prompts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in gen_batch.batch["input_ids"]]
+                        # target_lengths = torch.randint(low=330, high=370, size=(len(prompts),))
+
+                        # generate prompt-length-aware target lengths
+                        # # target_length_means = [150, 300, 350, 500, 800]
+                        # target_lengths = []
+                        # for ids in gen_batch.batch["input_ids"]:
+                        #     prompt_len = len(ids)
+                        #     if prompt_len < 100:
+                        #         mean = self.config.algorithm.low_mean
+                        #         sampled = int(np.random.normal(loc = mean, scale = 10))
+                        #     elif prompt_len <= 400:
+                        #         mean = self.config.algorithm.mid_mean
+                        #         sampled = int(np.random.normal(loc = mean, scale = 15))
+                        #     else:
+                        #         mean = self.config.algorithm.high_mean
+                        #         sampled = int(np.random.normal(loc = mean, scale = 80))
+                        #     sampled = max(sampled, 90)
+                        #     target_lengths.append(sampled)
+                        # target_lengths = torch.tensor(target_lengths, device=gen_batch.batch["input_ids"].device).long()
+
+                        # single Beta sampler (α=3, β=6.5)
+                        num_prompts = len(gen_batch.batch["input_ids"])
+                        beta_low = self.config.algorithm.beta_distr_low
+                        beta_high = self.config.algorithm.beta_distr_high
+                        width = beta_high - beta_low
+                        alpha = self.config.algorithm.distr_alpha
+                        beta_param = self.config.algorithm.distr_beta
+
+                        sampled = beta_low + np.random.beta(alpha, beta_param, size=num_prompts) * width
+                        target_lengths = torch.tensor(sampled, device=gen_batch.batch["input_ids"].device).long()
+
+                        for i, prompt in enumerate(prompts):
+                            # prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
+                            prompts[i] = prompt + f"\n\nThink in {target_lengths[i]} tokens."
+                            # print("*"*50)
+                            # print(prompts[i])
+                            # print("+"*50)
+                        tokenized = self.tokenizer(prompts, padding=True, return_tensors="pt", truncation=True)
+                        gen_batch.batch["input_ids"] = tokenized["input_ids"]
+                        gen_batch.batch["attention_mask"] = tokenized["attention_mask"]
+                        gen_batch.meta_info["target_lengths"] = target_lengths.tolist()
                         gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
 
                     if self.config.algorithm.adv_estimator == "remax":
-                        with timer("gen_max", timing_raw):
+                        with _timer("gen_max", timing_raw):
                             gen_baseline_batch = deepcopy(gen_batch)
                             gen_baseline_batch.meta_info["temperature"] = 0
                             gen_baseline_batch.meta_info["n"] = 1
                             gen_baseline_output = self.actor_rollout_wg.generate_sequences(gen_baseline_batch)
 
                             batch = batch.union(gen_baseline_output)
-                            reward_baseline_tensor, _ = ray.get(self.reward_fn.compute_reward.remote(batch))
+                            reward_baseline_tensor, _ = self.reward_fn(batch)
                             reward_baseline_tensor = reward_baseline_tensor.sum(dim=-1)
 
                             batch.pop(batch_keys=list(gen_baseline_output.batch.keys()))
@@ -521,6 +564,9 @@ class RayPPOTrainer:
                     batch = batch.repeat(repeat_times=self.config.worker.rollout.n, interleave=True)
                     batch = batch.union(gen_batch_output)
                     batch.non_tensor_batch.pop("multi_modal_data", None)
+
+                    target_lengths = target_lengths.repeat_interleave(self.config.worker.rollout.n)
+                    batch.meta_info["target_lengths"] = target_lengths.tolist()
 
                     # balance the number of valid tokens on each dp rank.
                     # Note that this breaks the order of data inside the batch.
