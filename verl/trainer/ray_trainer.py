@@ -19,16 +19,14 @@ This trainer supports model-agonistic model initialization with huggingface
 import os
 import uuid
 from collections import defaultdict
-from contextlib import contextmanager
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum, IntEnum, auto
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Type
 
 import numpy as np
 import ray
 import torch
-from codetiming import Timer
 from ray.experimental.tqdm_ray import tqdm
 from torchdata.stateful_dataloader import StatefulDataLoader
 from transformers import PreTrainedTokenizer, ProcessorMixin
@@ -40,9 +38,10 @@ from ..single_controller.ray.base import create_colocated_worker_cls
 from ..utils import torch_functional as VF
 from ..utils.checkpoint import CHECKPOINT_TRACKER, remove_obsolete_ckpt
 from ..utils.logger import Tracker
-from ..utils.py_functional import convert_dict_to_str
+from ..utils.py_functional import convert_dict_to_str, timer
 from ..utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seqlen_unbalance
 from ..workers.fsdp_workers import FSDPWorker
+from ..workers.reward import FunctionRewardManager
 from . import core_algos
 from .config import PPOConfig
 from .metrics import compute_data_metrics, compute_throughout_metrics, compute_timing_metrics, reduce_metrics
@@ -121,12 +120,6 @@ def apply_kl_penalty(data: DataProto, kl_ctrl: core_algos.KLController, kl_penal
     kld = core_algos.compute_kl(data.batch["old_log_probs"], data.batch["ref_log_probs"], kl_penalty=kl_penalty)
     kld = kld * response_mask  # (batch_size, response_length)
 
-    # # compute length penalty
-    # target_lengths = torch.tensor(data.meta_info["target_lengths"], device=token_level_scores.device).long()
-    # actual_lengths = torch.sum(response_mask, dim=1)
-    # length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
-    # len_penalty = length_penalty[:, None].expand(-1, response_mask.shape[1])
-
     data.batch["token_level_rewards"] = token_level_scores - kl_ctrl.kl_coef * kld
 
     current_kl = VF.masked_mean(kld, mask=response_mask, dim=-1)  # average over sequence
@@ -168,14 +161,6 @@ def compute_advantage(data: DataProto, adv_estimator: AdvantageEstimator, gamma:
     return data
 
 
-@contextmanager
-def _timer(name: str, timing_raw: Dict[str, float]):
-    with Timer(name=name, logger=None) as timer:
-        yield
-
-    timing_raw[name] = timer.last
-
-
 class RayPPOTrainer:
     """
     Note that this trainer runs on the driver process on a single CPU/GPU node.
@@ -191,8 +176,8 @@ class RayPPOTrainer:
         role_worker_mapping: dict[Role, Type[Worker]],
         resource_pool_manager: ResourcePoolManager,
         ray_worker_group_cls: Type[RayWorkerGroup] = RayWorkerGroup,
-        reward_fn: Optional[Callable[[DataProto], Tuple[torch.Tensor, Dict[str, List[float]]]]] = None,
-        val_reward_fn: Optional[Callable[[DataProto], Tuple[torch.Tensor, Dict[str, List[float]]]]] = None,
+        reward_fn: Optional[FunctionRewardManager] = None,
+        val_reward_fn: Optional[FunctionRewardManager] = None,
     ):
         self.tokenizer = tokenizer
         self.processor = processor
@@ -201,7 +186,6 @@ class RayPPOTrainer:
         self.config = config
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
-        self.lambda_len = config.algorithm.lambda_len_init
 
         self.hybrid_engine = config.worker.hybrid_engine
         if self.hybrid_engine:
@@ -314,7 +298,6 @@ class RayPPOTrainer:
             test_gen_batch, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_wg.world_size)
             test_output_gen_batch = self.actor_rollout_wg.generate_sequences(test_gen_batch)
             test_output_gen_batch = unpad_dataproto(test_output_gen_batch, pad_size=pad_size)
-            print("validation generation end")
 
             # Store generated outputs
             output_ids = test_output_gen_batch.batch["responses"]
@@ -324,7 +307,7 @@ class RayPPOTrainer:
             test_batch = test_batch.union(test_output_gen_batch)
 
             # evaluate using reward_function
-            reward_tensor, reward_metrics = self.val_reward_fn(test_batch)
+            reward_tensor, reward_metrics = ray.get(self.val_reward_fn.compute_reward.remote(test_batch))
 
             # Store scores
             scores = reward_tensor.sum(-1).cpu().tolist()
@@ -511,63 +494,20 @@ class RayPPOTrainer:
                         non_tensor_batch_keys=["raw_prompt_ids"],
                     )
 
-                with _timer("step", timing_raw):
+                with timer("step", timing_raw):
                     # generate a batch
-                    with _timer("gen", timing_raw):  # wg: worker group
-                        # prompts = gen_batch.non_tensor_batch["prompts"]
-                        prompts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in gen_batch.batch["input_ids"]]
-                        # target_lengths = torch.randint(low=330, high=370, size=(len(prompts),))
-
-                        # generate prompt-length-aware target lengths
-                        # # target_length_means = [150, 300, 350, 500, 800]
-                        # target_lengths = []
-                        # for ids in gen_batch.batch["input_ids"]:
-                        #     prompt_len = len(ids)
-                        #     if prompt_len < 100:
-                        #         mean = self.config.algorithm.low_mean
-                        #         sampled = int(np.random.normal(loc = mean, scale = 10))
-                        #     elif prompt_len <= 400:
-                        #         mean = self.config.algorithm.mid_mean
-                        #         sampled = int(np.random.normal(loc = mean, scale = 15))
-                        #     else:
-                        #         mean = self.config.algorithm.high_mean
-                        #         sampled = int(np.random.normal(loc = mean, scale = 80))
-                        #     sampled = max(sampled, 90)
-                        #     target_lengths.append(sampled)
-                        # target_lengths = torch.tensor(target_lengths, device=gen_batch.batch["input_ids"].device).long()
-
-                        # single Beta sampler (α=3, β=6.5)
-                        num_prompts = len(gen_batch.batch["input_ids"])
-                        beta_low = self.config.algorithm.beta_distr_low
-                        beta_high = self.config.algorithm.beta_distr_high
-                        width = beta_high - beta_low
-                        alpha = self.config.algorithm.distr_alpha
-                        beta_param = self.config.algorithm.distr_beta
-
-                        sampled = beta_low + np.random.beta(alpha, beta_param, size=num_prompts) * width
-                        target_lengths = torch.tensor(sampled, device=gen_batch.batch["input_ids"].device).long()
-
-                        for i, prompt in enumerate(prompts):
-                            # prompts[i] = prompt + f"\n\nThink in {target_lengths[i].item()} tokens."
-                            prompts[i] = prompt + f"\n\nThink in {target_lengths[i]} tokens."
-                            # print("*"*50)
-                            # print(prompts[i])
-                            # print("+"*50)
-                        tokenized = self.tokenizer(prompts, padding=True, return_tensors="pt", truncation=True)
-                        gen_batch.batch["input_ids"] = tokenized["input_ids"]
-                        gen_batch.batch["attention_mask"] = tokenized["attention_mask"]
-                        gen_batch.meta_info["target_lengths"] = target_lengths.tolist()
+                    with timer("gen", timing_raw):  # wg: worker group
                         gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
 
                     if self.config.algorithm.adv_estimator == "remax":
-                        with _timer("gen_max", timing_raw):
+                        with timer("gen_max", timing_raw):
                             gen_baseline_batch = deepcopy(gen_batch)
                             gen_baseline_batch.meta_info["temperature"] = 0
                             gen_baseline_batch.meta_info["n"] = 1
                             gen_baseline_output = self.actor_rollout_wg.generate_sequences(gen_baseline_batch)
 
                             batch = batch.union(gen_baseline_output)
-                            reward_baseline_tensor, _ = self.reward_fn(batch)
+                            reward_baseline_tensor, _ = ray.get(self.reward_fn.compute_reward.remote(batch))
                             reward_baseline_tensor = reward_baseline_tensor.sum(dim=-1)
 
                             batch.pop(batch_keys=list(gen_baseline_output.batch.keys()))
@@ -582,12 +522,6 @@ class RayPPOTrainer:
                     batch = batch.union(gen_batch_output)
                     batch.non_tensor_batch.pop("multi_modal_data", None)
 
-                    target_lengths = target_lengths.repeat_interleave(self.config.worker.rollout.n)
-                    batch.meta_info["target_lengths"] = target_lengths.tolist()
-
-                    # if "target_lengths" in gen_batch.meta_info:
-                        # batch.meta_info["target_lengths"] = gen_batch.meta_info["target_lengths"]
-
                     # balance the number of valid tokens on each dp rank.
                     # Note that this breaks the order of data inside the batch.
                     # Please take care when you implement group based adv computation such as GRPO and rloo
@@ -597,83 +531,37 @@ class RayPPOTrainer:
                     batch.meta_info["global_token_num"] = torch.sum(batch.batch["attention_mask"], dim=-1).tolist()
 
                     # compute reward
-                    with _timer("reward", timing_raw):
-                        # we combine with rule-based rm
-                        # reward_tensor, reward_metrics = self.reward_fn(batch)
+                    with timer("reward", timing_raw):
                         reward_ref = self.reward_fn.compute_reward.remote(batch)
-                    
+
                     # recompute old_log_probs
-                    with _timer("old", timing_raw):
+                    with timer("old", timing_raw):
                         old_log_probs = self.actor_rollout_wg.compute_log_probs(batch)
                         batch = batch.union(old_log_probs)
 
                     # compute ref_log_probs
                     if self.use_reference_policy:
-                        with _timer("ref", timing_raw):
+                        with timer("ref", timing_raw):
                             ref_log_probs = self.ref_policy_wg.compute_ref_log_probs(batch)
                             batch = batch.union(ref_log_probs)
 
                     # compute values
                     if self.use_critic:
-                        with _timer("values", timing_raw):
+                        with timer("values", timing_raw):
                             values = self.critic_wg.compute_values(batch)
                             batch = batch.union(values)
 
-                    with timer("penalty", timing_raw):   
-                        # get token level scores     
+                    with timer("adv", timing_raw):
+                        # get token level scores
                         reward_tensor, reward_metrics = ray.get(reward_ref)
-                        
-                        # add length penalty here to reward
-                        target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
-                        response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
-                        actual_lengths = torch.sum(response_mask, dim=1)
-
-                        correct_bool = (reward_tensor.sum(dim=1) >= 0.5)  # 1 if any token has (accuracy) reward
-                        correct = correct_bool.float()
-                        incorrect_bool = (reward_tensor.sum(dim=1) < 0.5)
-                        incorrect = incorrect_bool.float()
-                        over_length_bool = (actual_lengths > target_lengths)
-                        over_length = over_length_bool.float()
-                        too_long_bool = (actual_lengths > target_lengths * (self.config.algorithm.ezprompt_ratio + 0.7))
-                        too_long = too_long_bool.float()
-                        ezprompt_bool = (actual_lengths < self.config.algorithm.ezprompt_ratio * target_lengths)
-                        ezprompt = ezprompt_bool.float()
-                        # Penalty mask: only apply when (correct AND too long AND target not too low) OR (incorrect AND tooooooo long)
-                        penalty_mask = correct * over_length * ezprompt + incorrect * too_long
-                        penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
-
-                        length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
-                        # create a zero tensor and scatter the per‑sample penalty onto last‑token positions
-                        penalty = torch.zeros_like(reward_tensor)                                # (B, T)
-                        last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
-                        penalty.scatter_(1, last_idx, length_penalty.unsqueeze(1))               # put penalty at final token
-
-                        # test
-                        # last_token_rewards = reward_tensor.sum(dim=1, keepdim=True)
-                        # reconstructed_reward = torch.zeros_like(reward_tensor)
-                        # reconstructed_reward.scatter_(1, last_idx, last_token_rewards)
-
-                        penalty = penalty_mask * self.lambda_len * penalty
-
-                        clipped_penalty = torch.clamp(penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
-
-                        reward_tensor = reward_tensor - clipped_penalty
-
-                        # reward_tensor = reconstructed_reward
-
                         batch.batch["token_level_scores"] = reward_tensor
-                        reward_metrics = {
-                            f"reward/{key}": value for key, value in reduce_metrics(reward_metrics).items()
-                        }
+                        reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
 
-                    with _timer("adv", timing_raw):
                         # apply kl penalty if available
                         if not self.config.algorithm.use_kl_loss and self.use_reference_policy:
                             # apply kl penalty to reward
-                            batch, kl_metrics = apply_kl_penalty(
-                                batch, kl_ctrl=self.kl_ctrl, kl_penalty=self.config.algorithm.kl_penalty
-                            )
+                            batch, kl_metrics = apply_kl_penalty(batch, self.kl_ctrl, self.config.algorithm.kl_penalty)
                             metrics.update(kl_metrics)
                         else:
                             batch.batch["token_level_rewards"] = batch.batch["token_level_scores"]
@@ -685,19 +573,10 @@ class RayPPOTrainer:
                             gamma=self.config.algorithm.gamma,
                             lam=self.config.algorithm.lam,
                         )
-                        # grab the raw advantage tensor (shape: [B, T] for token‑level or [B] for sequence‑level)
-                        adv = batch.batch["advantages"]
-
-                        # flatten it
-                        adv_flat = adv.reshape(-1)
-
-                        # compute and log both mean and std
-                        metrics["adv/mean"] = adv_flat.mean().item()
-                        metrics["adv/std"]  = adv_flat.std().item()
 
                     # update critic
                     if self.use_critic:
-                        with _timer("update_critic", timing_raw):
+                        with timer("update_critic", timing_raw):
                             critic_output = self.critic_wg.update_critic(batch)
 
                         critic_metrics = reduce_metrics(critic_output.non_tensor_batch)
@@ -705,67 +584,11 @@ class RayPPOTrainer:
 
                     # update actor
                     if self.config.trainer.critic_warmup <= self.global_step:
-                        with _timer("update_actor", timing_raw):
+                        with timer("update_actor", timing_raw):
                             actor_output = self.actor_rollout_wg.update_actor(batch)
 
                         actor_metrics = reduce_metrics(actor_output.non_tensor_batch)
                         metrics.update(actor_metrics)
-                        
-                    # update lambda for length penalty
-                    response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
-                    actual_lengths = torch.sum(response_mask, dim=1)
-                    length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
-                    avg_act_targ = length_penalty.mean().item()
-                    avg_penalty_w0 = clipped_penalty.mean().item()
-                    # mean of *actual* penalties (ignore zeros)
-                    nonzero_mask = clipped_penalty != 0
-                    if nonzero_mask.any():
-                        avg_penalty = clipped_penalty[nonzero_mask].mean().item()
-                    else:
-                        avg_penalty = 0.0
-
-                    print("#"*50)
-                    print("actual_lengths:", actual_lengths)
-                    print("target_lengths:", target_lengths)
-                    print("avg actual/target:", avg_act_targ)
-                    print(f"avg_penalty: {avg_penalty}")
-                    print("*"*50)
-                    metrics.update({
-                        "len/actual_mean": actual_lengths.float().mean().item(),
-                        "len/target_mean": target_lengths.float().mean().item(),
-                        "len/frac_over": (actual_lengths > target_lengths).float().mean().item(),
-                        # "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
-                        # "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
-                        # "len/ezprompt_rate": ezprompt.mean().item(),
-                        "len/penalty_ratio": penalty_mask.mean().item(),
-                        "len/lambda": self.lambda_len,
-                        "len/avg_actl tgt": avg_act_targ,
-                        "len/avg_penalty": avg_penalty,
-                        "len/penalty_correct": length_penalty[correct_bool].mean().item()
-                                            if correct_bool.any() else 0.0,
-                        "len/penalty_incorrect": length_penalty[~correct_bool].mean().item(),
-                        "len/clip_rate": (penalty > self.config.algorithm.max_len_penalty).float().mean().item(),
-                        # "len/avg_penalty_w0": avg_penalty_w0,
-                        # optional: save raw reward before penalty if you cached it
-                        # "reward/raw_mean": raw_reward.mean().item(),
-                    })
-                    
-                    # beta = 0.9
-                    lambda_old = self.lambda_len
-                    # exclude extreme cases where actual / target ≥ ezprompt_ratio  **or** ≤ shortresp_ratio
-                    valid_mask = (length_penalty < self.config.algorithm.ezprompt_ratio) & (length_penalty > self.config.algorithm.shortresp_ratio)
-                    if valid_mask.any():
-                        avg_act_targ = length_penalty[valid_mask].mean().item()
-                    else:
-                        avg_act_targ = 2.0
-                    lambda_new = max(self.lambda_len + self.config.algorithm.dual_lr * (avg_act_targ - 1.0), 0.0)
-                    # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
-                    self.lambda_len = lambda_new
-
-                    # log fraction of samples that contribute to the dual update
-                    metrics["len/valid_ratio"] = valid_mask.float().mean().item()
-                    metrics["len/valid_act_targ"] = avg_act_targ
-
 
                     # validate
                     if (
@@ -773,13 +596,13 @@ class RayPPOTrainer:
                         and self.config.trainer.val_freq > 0
                         and self.global_step % self.config.trainer.val_freq == 0
                     ):
-                        with _timer("validation", timing_raw):
+                        with timer("validation", timing_raw):
                             val_metrics = self._validate()
 
                         metrics.update(val_metrics)
 
                     if self.config.trainer.save_freq > 0 and self.global_step % self.config.trainer.save_freq == 0:
-                        with _timer("save_checkpoint", timing_raw):
+                        with timer("save_checkpoint", timing_raw):
                             self._save_checkpoint()
 
                 # collect metrics
