@@ -51,7 +51,7 @@ class DataConfig:
 
     def post_init(self):
         if self.format_prompt is not None:
-            if os.path.exists(self.format_prompt):  # ray job uses absolute path
+            if os.path.exists(self.format_prompt):
                 self.format_prompt = os.path.abspath(self.format_prompt)
             else:
                 self.format_prompt = None
@@ -69,6 +69,18 @@ class AlgorithmConfig:
     kl_type: str = "fixed"
     kl_horizon: float = 0.0
     kl_target: float = 0.0
+    dual_lr: float = 1e-2
+    lambda_len_init: float = 6.0e-3
+    # high_mean: float = 800.0
+    # mid_mean: float = 500.0
+    # low_mean: float = 125.0
+    beta_distr_high: float = 1000.0
+    beta_distr_low: float = 50.0
+    distr_alpha: float = 3.0
+    distr_beta: float = 6.5
+    ezprompt_ratio: float = 1.5
+    shortresp_ratio: float = 0.3
+    max_len_penalty: float = 0.05
 
 
 @dataclass
@@ -94,7 +106,7 @@ class TrainerConfig:
         if self.save_checkpoint_path is None:
             self.save_checkpoint_path = os.path.join("checkpoints", self.project_name, self.experiment_name)
 
-        self.save_checkpoint_path = os.path.abspath(self.save_checkpoint_path)  # ray job uses absolute path
+        self.save_checkpoint_path = os.path.abspath(self.save_checkpoint_path)
         if self.load_checkpoint_path is not None:
             self.load_checkpoint_path = os.path.abspath(self.load_checkpoint_path)
 
