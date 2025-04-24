@@ -36,9 +36,9 @@ algorithm:
 
 worker:
   actor:
-    global_batch_size: 128
+    global_batch_size: 16
     micro_batch_size_per_device_for_update: 4
-    micro_batch_size_per_device_for_experience: 16
+    micro_batch_size_per_device_for_experience: 4
     max_grad_norm: 1.0
     padding_free: true
     ulysses_sequence_parallel_size: 1
@@ -61,7 +61,7 @@ worker:
       offload_optimizer: true  # true: more CPU memory; false: more GPU memory
 
   rollout:
-    n: 5
+    n: 2
     temperature: 1.0
     top_p: 0.99
     gpu_memory_utilization: 0.6
