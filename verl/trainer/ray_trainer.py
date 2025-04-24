@@ -551,6 +551,54 @@ class RayPPOTrainer:
                             values = self.critic_wg.compute_values(batch)
                             batch = batch.union(values)
 
+                    with timer("penalty", timing_raw):
+                        # get token level scores
+                        # reward_tensor, reward_metrics = ray.get(reward_ref)
+
+                        # add length penalty here to reward
+                        target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
+                        response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
+                        actual_lengths = torch.sum(response_mask, dim=1)
+
+                        correct_bool = (reward_tensor.sum(dim=1) >= 0.5)  # 1 if any token has (accuracy) reward
+                        correct = correct_bool.float()
+                        incorrect_bool = (reward_tensor.sum(dim=1) < 0.5)
+                        incorrect = incorrect_bool.float()
+                        over_length_bool = (actual_lengths > target_lengths)
+                        over_length = over_length_bool.float()
+                        too_long_bool = (actual_lengths > target_lengths * (self.config.algorithm.ezprompt_ratio + 0.7))
+                        too_long = too_long_bool.float()
+                        ezprompt_bool = (actual_lengths < self.config.algorithm.ezprompt_ratio * target_lengths)
+                        ezprompt = ezprompt_bool.float()
+                        # Penalty mask: only apply when (correct AND too long AND target not too low) OR (incorrect AND tooooooo long)
+                        penalty_mask = correct * over_length * ezprompt + incorrect * too_long
+                        penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
+
+                        length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
+                        # create a zero tensor and scatter the per‑sample penalty onto last‑token positions
+                        penalty = torch.zeros_like(reward_tensor)                                # (B, T)
+                        last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
+                        penalty.scatter_(1, last_idx, length_penalty.unsqueeze(1))               # put penalty at final token
+
+                        # test
+                        # last_token_rewards = reward_tensor.sum(dim=1, keepdim=True)
+                        # reconstructed_reward = torch.zeros_like(reward_tensor)
+                        # reconstructed_reward.scatter_(1, last_idx, last_token_rewards)
+
+                        penalty = penalty_mask * self.lambda_len * penalty
+
+                        clipped_penalty = torch.clamp(penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
+
+                        reward_tensor = reward_tensor - clipped_penalty
+
+                        # reward_tensor = reconstructed_reward
+
+                        batch.batch["token_level_scores"] = reward_tensor
+                        reward_metrics = {
+                            f"reward/{key}": value for key, value in reduce_metrics(reward_metrics).items()
+                        }
+                        metrics.update(reward_metrics)
+
                     with timer("adv", timing_raw):
                         # get token level scores
                         reward_tensor, reward_metrics = ray.get(reward_ref)
