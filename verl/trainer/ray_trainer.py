@@ -496,7 +496,7 @@ class RayPPOTrainer:
 
                 with timer("step", timing_raw):
                     # generate a batch
-                    with _timer("gen", timing_raw):  # wg: worker group
+                    with timer("gen", timing_raw):  # wg: worker group
                         # prompts = gen_batch.non_tensor_batch["prompts"]
                         prompts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in gen_batch.batch["input_ids"]]
                         # target_lengths = torch.randint(low=330, high=370, size=(len(prompts),))
@@ -543,7 +543,7 @@ class RayPPOTrainer:
                         gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
 
                     if self.config.algorithm.adv_estimator == "remax":
-                        with _timer("gen_max", timing_raw):
+                        with timer("gen_max", timing_raw):
                             gen_baseline_batch = deepcopy(gen_batch)
                             gen_baseline_batch.meta_info["temperature"] = 0
                             gen_baseline_batch.meta_info["n"] = 1
