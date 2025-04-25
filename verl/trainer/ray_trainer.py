@@ -599,7 +599,7 @@ class RayPPOTrainer:
 
                     with timer("penalty", timing_raw):
                         # get token level scores
-                        # reward_tensor, reward_metrics = ray.get(reward_ref)
+                        reward_tensor, reward_metrics = ray.get(reward_ref)
 
                         # add length penalty here to reward
                         target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
@@ -646,12 +646,6 @@ class RayPPOTrainer:
                         metrics.update(reward_metrics)
 
                     with timer("adv", timing_raw):
-                        # get token level scores
-                        reward_tensor, reward_metrics = ray.get(reward_ref)
-                        batch.batch["token_level_scores"] = reward_tensor
-                        reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
-                        metrics.update(reward_metrics)
-
                         # apply kl penalty if available
                         if not self.config.algorithm.use_kl_loss and self.use_reference_policy:
                             # apply kl penalty to reward
