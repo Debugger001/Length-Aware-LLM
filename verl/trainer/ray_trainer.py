@@ -186,6 +186,7 @@ class RayPPOTrainer:
         self.config = config
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
+        self.lambda_len = self.config.algorithm.lambda_len_init
 
         self.hybrid_engine = config.worker.hybrid_engine
         if self.hybrid_engine:
