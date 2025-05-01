@@ -556,41 +556,40 @@ class RayPPOTrainer:
                         reward_tensor, reward_metrics = ray.get(reward_ref)
 
                         print("Reward tensor shape:", reward_tensor.shape)
-                        response_lengths = batch.batch["attention_mask"].sum(dim=1)  # [batch_size]
+                        response_lengths = batch.batch["response_mask"].sum(dim=1)  # [batch_size]
                         row_sums = reward_tensor.sum(dim=1)
                         nonzero_mask = row_sums >= 0.7  # [batch_size]
 
                         # Loop through non-zero rows and print only up to response_length
-                        cnt = 0
-                        torch.set_printoptions(threshold=float('inf'))
-                        for i in torch.where(nonzero_mask)[0]:
-                            idx = i.item()
-                            rlen = response_lengths[idx].item()
-                            nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
-                            print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen}")
-                            print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
-                            cnt += 1
-                        print("*"*100)
-                        print("Count = ", cnt)
+                        # cnt = 0
+                        # torch.set_printoptions(threshold=float('inf'))
+                        # for i in torch.where(nonzero_mask)[0]:
+                        #     idx = i.item()
+                        #     rlen = response_lengths[idx].item()
+                        #     nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
+                        #     print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen}")
+                        #     print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
+                        #     cnt += 1
+                        # print("*"*100)
+                        # print("Count = ", cnt)
 
                         # Apply length-based penalty to correct responses
                         threshold = 500
                         lambda_len = 0.1
                         # lambda_len = self.config.algorithm.lambda_len  # Define lambda_len in your PPOConfig
-                        response_lengths = batch.batch["attention_mask"].sum(dim=-1)
                         if "score" in reward_metrics:
-                            is_correct = torch.tensor(reward_metrics["score"], dtype=torch.float32, device=response_lengths.device) == 1
+                            is_correct = torch.tensor(reward_metrics["score"], dtype=torch.float32, device=response_lengths.device) >= 0.9
                         elif "overall" in reward_metrics:
-                            is_correct = torch.tensor(reward_metrics["overall"], dtype=torch.float32, device=response_lengths.device) >= 0.9
+                            is_correct = torch.tensor(reward_metrics["overall"], dtype=torch.float32, device=response_lengths.device) >= 0.7
                         else:
                             raise ValueError("Neither 'score' nor 'overall' found in reward metrics for correctness checking.")
                         
                         correct_reward_tensor = reward_tensor[is_correct]  # shape: [#correct, seq_len]
 
-                        print("Correct response count:", is_correct.sum().item())
-                        print("Correct reward tensor shape:", correct_reward_tensor.shape)
-                        print("Correct reward tensor sum per response:", correct_reward_tensor.sum(dim=1))
-                        print("Correct reward tensor stats — max:", correct_reward_tensor.max().item(), "min:", correct_reward_tensor.min().item())
+                        # print("Correct response count:", is_correct.sum().item())
+                        # print("Correct reward tensor shape:", correct_reward_tensor.shape)
+                        # print("Correct reward tensor sum per response:", correct_reward_tensor.sum(dim=1))
+                        # print("Correct reward tensor stats — max:", correct_reward_tensor.max().item(), "min:", correct_reward_tensor.min().item())
 
                         penalty = (lambda_len * response_lengths / threshold) * torch.tensor(is_correct, dtype=torch.float32, device=response_lengths.device)
                         reward_tensor = reward_tensor - penalty.unsqueeze(1)
