@@ -564,7 +564,7 @@ class RayPPOTrainer:
                         cnt = 1
                         for i in torch.where(nonzero_mask)[0]:
                             rlen = response_lengths[i].item()
-                            print(f"Sample {i.item()} (len={rlen}, sum={rowsum}):", reward_tensor[i], row_sums[i])
+                            print(f"Sample {i.item()} (len={rlen}, sum={row_sums[i]}):", reward_tensor[i])
                             cnt += 1
                         print("*"*100)
                         print("Count = ", cnt)
