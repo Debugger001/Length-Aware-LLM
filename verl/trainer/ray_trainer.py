@@ -563,7 +563,7 @@ class RayPPOTrainer:
                         # Loop through non-zero rows and print only up to response_length
                         for i in torch.where(nonzero_mask)[0]:
                             rlen = response_lengths[i].item()
-                            print(f"Sample {i.item()} (len={rlen}):", reward_tensor[i, :rlen])
+                            print(f"Sample {i.item()} (len={rlen}):", reward_tensor[i, :rlen+2])
 
                         # Apply length-based penalty to correct responses
                         threshold = 500
