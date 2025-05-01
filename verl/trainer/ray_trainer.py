@@ -558,7 +558,7 @@ class RayPPOTrainer:
                         print("Reward tensor shape:", reward_tensor.shape)
                         response_lengths = batch.batch["attention_mask"].sum(dim=1)  # [batch_size]
                         row_sums = reward_tensor.sum(dim=1)
-                        nonzero_mask = row_sums != 0  # [batch_size]
+                        nonzero_mask = row_sums >= 0.7  # [batch_size]
 
                         # Loop through non-zero rows and print only up to response_length
                         for i in torch.where(nonzero_mask)[0]:
