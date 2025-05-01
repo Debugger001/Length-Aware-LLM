@@ -562,12 +562,13 @@ class RayPPOTrainer:
 
                         # Loop through non-zero rows and print only up to response_length
                         cnt = 0
-                        for i in torch.where(nonzero_mask)[0]:
+                        torch.set_printoptions(threshold=float('inf'))
+                        for i in torch.where(is_correct)[0]:
                             idx = i.item()
-                            rlen = response_lengths[i].item()
+                            rlen = response_lengths[idx].item()
                             nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
-                            print(f"Correct sample {idx} → reward at token {nz.item()}")
-                            # print(f"Sample {i.item()} (len={rlen}, sum={row_sums[i]}):", reward_tensor[i])
+                            print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen}")
+                            print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
                             cnt += 1
                         print("*"*100)
                         print("Count = ", cnt)
