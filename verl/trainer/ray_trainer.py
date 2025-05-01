@@ -561,9 +561,13 @@ class RayPPOTrainer:
                         nonzero_mask = row_sums >= 0.7  # [batch_size]
 
                         # Loop through non-zero rows and print only up to response_length
+                        cnt = 1
                         for i in torch.where(nonzero_mask)[0]:
                             rlen = response_lengths[i].item()
-                            print(f"Sample {i.item()} (len={rlen}):", reward_tensor[i, :rlen+2])
+                            print(f"Sample {i.item()} (len={rlen}, sum={rowsum}):", reward_tensor[i], row_sums[i])
+                            cnt += 1
+                        print("*"*100)
+                        print("Count = ", cnt)
 
                         # Apply length-based penalty to correct responses
                         threshold = 500
