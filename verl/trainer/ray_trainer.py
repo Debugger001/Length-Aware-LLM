@@ -556,8 +556,14 @@ class RayPPOTrainer:
                         reward_tensor, reward_metrics = ray.get(reward_ref)
 
                         print("Reward tensor shape:", reward_tensor.shape)
-                        nonzero_rows = reward_tensor.sum(dim=1) >= 0.6
-                        print("Non-zero reward tensor:", reward_tensor[nonzero_rows])
+                        response_lengths = batch.batch["attention_mask"].sum(dim=1)  # [batch_size]
+                        row_sums = reward_tensor.sum(dim=1)
+                        nonzero_mask = row_sums != 0  # [batch_size]
+
+                        # Loop through non-zero rows and print only up to response_length
+                        for i in torch.where(nonzero_mask)[0]:
+                            rlen = response_lengths[i].item()
+                            print(f"Sample {i.item()} (len={rlen}):", reward_tensor[i, :rlen])
 
                         # Apply length-based penalty to correct responses
                         threshold = 500
