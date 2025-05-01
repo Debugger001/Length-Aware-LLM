@@ -554,6 +554,24 @@ class RayPPOTrainer:
                     with timer("adv", timing_raw):
                         # get token level scores
                         reward_tensor, reward_metrics = ray.get(reward_ref)
+
+                        print("Reward tensor shape:", reward_tensor.shape)
+                        print("Reward tensor:", reward_tensor)
+
+                        # Apply length-based penalty to correct responses
+                        threshold = 500
+                        lambda_len = 0.1
+                        # lambda_len = self.config.algorithm.lambda_len  # Define lambda_len in your PPOConfig
+                        response_lengths = batch.batch["attention_mask"].sum(dim=-1)
+                        if "score" in reward_metrics:
+                            is_correct = reward_metrics["score"] == 1
+                        elif "overall" in reward_metrics:
+                            is_correct = reward_metrics["overall"] >= 0.9
+                        else:
+                            raise ValueError("Neither 'score' nor 'overall' found in reward metrics for correctness checking.")
+
+                        penalty = (lambda_len * response_lengths / threshold) * torch.tensor(is_correct, dtype=torch.float32, device=response_lengths.device)
+                        reward_tensor = reward_tensor - penalty.unsqueeze(1)
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
