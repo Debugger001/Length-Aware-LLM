@@ -570,6 +570,13 @@ class RayPPOTrainer:
                             is_correct = torch.tensor(reward_metrics["overall"], dtype=torch.float32, device=response_lengths.device) >= 0.9
                         else:
                             raise ValueError("Neither 'score' nor 'overall' found in reward metrics for correctness checking.")
+                        
+                        correct_reward_tensor = reward_tensor[is_correct]  # shape: [#correct, seq_len]
+
+                        print("Correct response count:", is_correct.sum().item())
+                        print("Correct reward tensor shape:", correct_reward_tensor.shape)
+                        print("Correct reward tensor sum per response:", correct_reward_tensor.sum(dim=1))
+                        print("Correct reward tensor stats — max:", correct_reward_tensor.max().item(), "min:", correct_reward_tensor.min().item())
 
                         penalty = (lambda_len * response_lengths / threshold) * torch.tensor(is_correct, dtype=torch.float32, device=response_lengths.device)
                         reward_tensor = reward_tensor - penalty.unsqueeze(1)
