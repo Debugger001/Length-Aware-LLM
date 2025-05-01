@@ -556,7 +556,7 @@ class RayPPOTrainer:
                         reward_tensor, reward_metrics = ray.get(reward_ref)
 
                         print("Reward tensor shape:", reward_tensor.shape)
-                        nonzero_rows = reward_tensor.sum(dim=1) != 0
+                        nonzero_rows = reward_tensor.sum(dim=1) >= 0.6
                         print("Non-zero reward tensor:", reward_tensor[nonzero_rows])
 
                         # Apply length-based penalty to correct responses
