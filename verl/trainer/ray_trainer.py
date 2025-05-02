@@ -575,7 +575,7 @@ class RayPPOTrainer:
 
                         # Apply length-based penalty to correct responses
                         threshold = 500
-                        lambda_len = 0.1
+                        lambda_len = 0.01
                         # lambda_len = self.config.algorithm.lambda_len  # Define lambda_len in your PPOConfig
                         if "score" in reward_metrics:
                             is_correct = torch.tensor(reward_metrics["score"], dtype=torch.float32, device=response_lengths.device) >= 0.9
