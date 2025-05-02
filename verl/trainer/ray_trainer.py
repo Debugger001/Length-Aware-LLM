@@ -604,7 +604,7 @@ class RayPPOTrainer:
 
                         # add length penalty here to reward
                         target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
-                        response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
+                        response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
                         actual_lengths = torch.sum(response_mask, dim=1)
 
                         correct_bool = (reward_tensor.sum(dim=1) >= 0.5)  # 1 if any token has (accuracy) reward
@@ -680,7 +680,7 @@ class RayPPOTrainer:
                         metrics.update(actor_metrics)
 
                     # update lambda for length penalty
-                    response_mask = batch.batch["attention_mask"][:, -reward_tensor.shape[1]:]
+                    response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
                     actual_lengths = torch.sum(response_mask, dim=1)
                     length_penalty = (actual_lengths.float() / target_lengths).clamp(min=0)
                     avg_act_targ = length_penalty.mean().item()

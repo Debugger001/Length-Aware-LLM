@@ -6,7 +6,7 @@ data:
   image_key: images
   max_prompt_length: 2048
   max_response_length: 2048
-  rollout_batch_size: 512
+  rollout_batch_size: 128
   val_batch_size: 1024
   format_prompt: ./examples/format_prompt/math_format.jinja
   shuffle: true
@@ -61,7 +61,7 @@ worker:
       offload_optimizer: true  # true: more CPU memory; false: more GPU memory
 
   rollout:
-    n: 2
+    n: 3
     temperature: 1.0
     top_p: 0.99
     gpu_memory_utilization: 0.6
