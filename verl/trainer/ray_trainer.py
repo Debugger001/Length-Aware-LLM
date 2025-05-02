@@ -558,7 +558,7 @@ class RayPPOTrainer:
                         print("Reward tensor shape:", reward_tensor.shape)
                         response_lengths = batch.batch["response_mask"].sum(dim=1)  # [batch_size]
                         row_sums = reward_tensor.sum(dim=1)
-                        nonzero_mask = row_sums >= 0.7  # [batch_size]
+                        # nonzero_mask = row_sums >= 0.7  # [batch_size]
 
                         # # Loop through non-zero rows and print only up to response_length
                         # cnt = 0
@@ -591,21 +591,63 @@ class RayPPOTrainer:
                         # print("Correct reward tensor sum per response:", correct_reward_tensor.sum(dim=1))
                         # print("Correct reward tensor stats — max:", correct_reward_tensor.max().item(), "min:", correct_reward_tensor.min().item())
 
-                        penalty = (lambda_len * response_lengths / threshold) * torch.tensor(is_correct, dtype=torch.float32, device=response_lengths.device)
+                        # penalty = (lambda_len * response_lengths / threshold) * torch.tensor(is_correct, dtype=torch.float32, device=response_lengths.device)
+
+
+
+                        # add length penalty here to reward
+                        # target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
+                        response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
+                        actual_lengths = torch.sum(response_mask, dim=1)
+
+                        # correct_bool = (reward_tensor.sum(dim=1) >= 0.5)  # 1 if any token has (accuracy) reward
+                        # correct = correct_bool.float()
+                        # incorrect_bool = (reward_tensor.sum(dim=1) < 0.5)
+                        # incorrect = incorrect_bool.float()
+                        # over_length_bool = (actual_lengths > target_lengths)
+                        # over_length = over_length_bool.float()
+                        # too_long_bool = (actual_lengths > target_lengths * (self.config.algorithm.ezprompt_ratio + 0.7))
+                        # too_long = too_long_bool.float()
+                        # ezprompt_bool = (actual_lengths < self.config.algorithm.ezprompt_ratio * target_lengths)
+                        # ezprompt = ezprompt_bool.float()
+
+                        # Penalty mask: only apply when (correct AND too long AND target not too low) OR (incorrect AND tooooooo long)
+                        # penalty_mask = correct * over_length * ezprompt + incorrect * too_long
+                        # penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
+
+                        length_penalty = (actual_lengths.float() / threshold).clamp(min=0)
+                        # create a zero tensor and scatter the per‑sample penalty onto last‑token positions
+                        penalty = torch.zeros_like(reward_tensor)                                # (B, T)
+                        last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
+                        penalty.scatter_(1, last_idx, length_penalty.unsqueeze(1))               # put penalty at final token
+
+                        # test
+                        # last_token_rewards = reward_tensor.sum(dim=1, keepdim=True)
+                        # reconstructed_reward = torch.zeros_like(reward_tensor)
+                        # reconstructed_reward.scatter_(1, last_idx, last_token_rewards)
+
+                        penalty = penalty_mask * lambda_len * penalty
+
+                        clipped_penalty = torch.clamp(penalty, min=0.0, max=self.config.algorithm.max_len_penalty)
+
+                        reward_tensor = reward_tensor - clipped_penalty
+
                         # Subtract penalty only at last token for correct responses
-                        for i in range(reward_tensor.size(0)):
-                            if is_correct[i]:
-                                last_token_idx = response_lengths[i] - 1
-                                reward_tensor[i, last_token_idx] -= penalty[i]
+                        # for i in range(reward_tensor.size(0)):
+                            # if is_correct[i]:
+                                # last_token_idx = response_lengths[i] - 1
+                                # reward_tensor[i, last_token_idx] -= penalty[i]
 
                         # Loop through non-zero rows and print only up to response_length
+                        nonzero_mask = row_sums != 0  # [batch_size]
                         cnt = 0
                         torch.set_printoptions(threshold=float('inf'))
                         for i in torch.where(nonzero_mask)[0]:
                             idx = i.item()
                             rlen = response_lengths[idx].item()
                             nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
-                            print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen}")
+                            pen = rlen / threshold
+                            print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen} | penalty = {pen}")
                             print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
                             cnt += 1
                         print("*"*100)
