@@ -702,12 +702,12 @@ class RayPPOTrainer:
                     # else:
                         # avg_penalty = 0.0
 
-                    print("#"*50)
-                    print("actual_lengths:", actual_lengths)
-                    print("target_lengths:", target_lengths)
-                    print("avg actual/target:", avg_act_targ)
+                    # print("#"*50)
+                    # print("actual_lengths:", actual_lengths)
+                    # print("target_lengths:", target_lengths)
+                    # print("avg actual/target:", avg_act_targ)
                     # print(f"avg_penalty: {avg_penalty}")
-                    print("*"*50)
+                    # print("*"*50)
                     # metrics.update({
                     #     "len/actual_mean": actual_lengths.float().mean().item(),
                     #     "len/target_mean": target_lengths.float().mean().item(),
