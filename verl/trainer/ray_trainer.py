@@ -560,7 +560,7 @@ class RayPPOTrainer:
                         row_sums = reward_tensor.sum(dim=1)
                         nonzero_mask = row_sums >= 0.7  # [batch_size]
 
-                        # Loop through non-zero rows and print only up to response_length
+                        # # Loop through non-zero rows and print only up to response_length
                         # cnt = 0
                         # torch.set_printoptions(threshold=float('inf'))
                         # for i in torch.where(nonzero_mask)[0]:
@@ -592,7 +592,25 @@ class RayPPOTrainer:
                         # print("Correct reward tensor stats — max:", correct_reward_tensor.max().item(), "min:", correct_reward_tensor.min().item())
 
                         penalty = (lambda_len * response_lengths / threshold) * torch.tensor(is_correct, dtype=torch.float32, device=response_lengths.device)
-                        reward_tensor = reward_tensor - penalty.unsqueeze(1)
+                        # Subtract penalty only at last token for correct responses
+                        for i in range(reward_tensor.size(0)):
+                            if is_correct[i]:
+                                last_token_idx = response_lengths[i] - 1
+                                reward_tensor[i, last_token_idx] -= penalty[i]
+
+                        # Loop through non-zero rows and print only up to response_length
+                        cnt = 0
+                        torch.set_printoptions(threshold=float('inf'))
+                        for i in torch.where(nonzero_mask)[0]:
+                            idx = i.item()
+                            rlen = response_lengths[idx].item()
+                            nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
+                            print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen}")
+                            print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
+                            cnt += 1
+                        print("*"*100)
+                        print("Count = ", cnt)
+
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
