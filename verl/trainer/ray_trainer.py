@@ -305,11 +305,14 @@ class RayPPOTrainer:
 
             # Store generated outputs
             output_ids = test_output_gen_batch.batch["responses"]
-            response_lengths.extend([len(ids) for ids in output_ids])
             output_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
             sample_outputs.extend(output_texts)
             sample_labels.extend(test_batch.non_tensor_batch["ground_truth"].tolist())
             test_batch = test_batch.union(test_output_gen_batch)
+            
+            response_mask = test_output_gen_batch.batch["response_mask"]
+            actual_lengths = response_mask.sum(dim=1).tolist()  # list of ints
+            response_lengths.extend(actual_lengths)
 
             # evaluate using reward_function
             reward_tensor, reward_metrics = ray.get(self.val_reward_fn.compute_reward.remote(test_batch))
