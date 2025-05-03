@@ -186,7 +186,7 @@ class RayPPOTrainer:
         self.config = config
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
-        self.lambda_len = 0.01
+        self.lambda_len = 0.008
 
         self.hybrid_engine = config.worker.hybrid_engine
         if self.hybrid_engine:
@@ -735,7 +735,7 @@ class RayPPOTrainer:
                         # avg_act_targ = length_penalty[valid_mask].mean().item()
                     # else:
                         # avg_act_targ = 2.0
-                    dual_lr = 0.01
+                    dual_lr = 0.008
                     lambda_new = max(self.lambda_len + dual_lr * (avg_act_targ - 1.0), 0.0)
                     # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
                     self.lambda_len = lambda_new
