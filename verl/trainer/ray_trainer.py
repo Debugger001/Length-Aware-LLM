@@ -186,7 +186,9 @@ class RayPPOTrainer:
         self.config = config
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
-        self.lambda_len = 0.008
+        self.lambda_len = self.config.algorithm.lambda_len_init
+        self.dual_lr = self.config.algorithm.dual_lr
+        self.threshold = self.config.algorithm.threshold
 
         self.hybrid_engine = config.worker.hybrid_engine
         if self.hybrid_engine:
@@ -556,9 +558,9 @@ class RayPPOTrainer:
                         # get token level scores
                         reward_tensor, reward_metrics = ray.get(reward_ref)
 
-                        print("Reward tensor shape:", reward_tensor.shape)
-                        response_lengths = batch.batch["response_mask"].sum(dim=1)  # [batch_size]
-                        row_sums = reward_tensor.sum(dim=1)
+                        # print("Reward tensor shape:", reward_tensor.shape)
+                        # response_lengths = batch.batch["response_mask"].sum(dim=1)  # [batch_size]
+                        # row_sums = reward_tensor.sum(dim=1)
                         # nonzero_mask = row_sums >= 0.7  # [batch_size]
 
                         # # Loop through non-zero rows and print only up to response_length
@@ -575,16 +577,16 @@ class RayPPOTrainer:
                         # print("Count = ", cnt)
 
                         # Apply length-based penalty to correct responses
-                        threshold = 400
+
                         # lambda_len = self.config.algorithm.lambda_len  # Define lambda_len in your PPOConfig
-                        if "score" in reward_metrics:
-                            is_correct = torch.tensor(reward_metrics["score"], dtype=torch.float32, device=response_lengths.device) >= 0.9
-                        elif "overall" in reward_metrics:
-                            is_correct = torch.tensor(reward_metrics["overall"], dtype=torch.float32, device=response_lengths.device) >= 0.7
-                        else:
-                            raise ValueError("Neither 'score' nor 'overall' found in reward metrics for correctness checking.")
+                        # if "score" in reward_metrics:
+                            # is_correct = torch.tensor(reward_metrics["score"], dtype=torch.float32, device=response_lengths.device) >= 0.9
+                        # elif "overall" in reward_metrics:
+                            # is_correct = torch.tensor(reward_metrics["overall"], dtype=torch.float32, device=response_lengths.device) >= 0.7
+                        # else:
+                            # raise ValueError("Neither 'score' nor 'overall' found in reward metrics for correctness checking.")
                         
-                        correct_reward_tensor = reward_tensor[is_correct]  # shape: [#correct, seq_len]
+                        # correct_reward_tensor = reward_tensor[is_correct]  # shape: [#correct, seq_len]
 
                         # print("Correct response count:", is_correct.sum().item())
                         # print("Correct reward tensor shape:", correct_reward_tensor.shape)
@@ -615,7 +617,7 @@ class RayPPOTrainer:
                         # penalty_mask = correct * over_length * ezprompt + incorrect * too_long
                         # penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
 
-                        length_penalty = (actual_lengths.float() / threshold).clamp(min=0)
+                        length_penalty = (actual_lengths.float() / self.threshold).clamp(min=0)
                         # create a zero tensor and scatter the per‑sample penalty onto last‑token positions
                         penalty = torch.zeros_like(reward_tensor)                                # (B, T)
                         last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
@@ -628,7 +630,7 @@ class RayPPOTrainer:
 
                         penalty = self.lambda_len * penalty
 
-                        clipped_penalty = torch.clamp(penalty, min=0.0, max=0.03)
+                        clipped_penalty = torch.clamp(penalty, min=0.0, max=0.02)
 
                         reward_tensor = reward_tensor - clipped_penalty
 
@@ -639,19 +641,19 @@ class RayPPOTrainer:
                                 # reward_tensor[i, last_token_idx] -= penalty[i]
 
                         # Loop through non-zero rows and print only up to response_length
-                        nonzero_mask = row_sums != 0  # [batch_size]
-                        cnt = 0
-                        torch.set_printoptions(threshold=float('inf'))
-                        for i in torch.where(nonzero_mask)[0]:
-                            idx = i.item()
-                            rlen = response_lengths[idx].item()
-                            nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
-                            pen = rlen / threshold
-                            print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen} | penalty = {pen}")
-                            print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
-                            cnt += 1
-                        print("*"*100)
-                        print("Count = ", cnt)
+                        # nonzero_mask = row_sums != 0  # [batch_size]
+                        # cnt = 0
+                        # torch.set_printoptions(threshold=float('inf'))
+                        # for i in torch.where(nonzero_mask)[0]:
+                            # idx = i.item()
+                            # rlen = response_lengths[idx].item()
+                            # nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
+                            # pen = rlen / threshold
+                            # print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen} | penalty = {pen}")
+                            # print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
+                            # cnt += 1
+                        # print("*"*100)
+                        # print("Count = ", cnt)
 
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
@@ -692,7 +694,7 @@ class RayPPOTrainer:
                     # update lambda for length penalty
                     response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
                     actual_lengths = torch.sum(response_mask, dim=1)
-                    length_penalty = (actual_lengths.float() / threshold).clamp(min=0)
+                    length_penalty = (actual_lengths.float() / self.threshold).clamp(min=0)
                     avg_act_targ = length_penalty.mean().item()
                     # avg_penalty_w0 = clipped_penalty.mean().item()
                     # mean of *actual* penalties (ignore zeros)
@@ -735,8 +737,7 @@ class RayPPOTrainer:
                         # avg_act_targ = length_penalty[valid_mask].mean().item()
                     # else:
                         # avg_act_targ = 2.0
-                    dual_lr = 0.008
-                    lambda_new = max(self.lambda_len + dual_lr * (avg_act_targ - 1.0), 0.0)
+                    lambda_new = max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), 0.0)
                     # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
                     self.lambda_len = lambda_new
 
