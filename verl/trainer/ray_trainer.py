@@ -279,6 +279,7 @@ class RayPPOTrainer:
         # Lists to collect samples for the table
         sample_inputs, sample_outputs, sample_labels, sample_scores = [], [], [], []
         reward_metrics_lst = defaultdict(list)
+        response_lengths = []
         for batch_dict in self.val_dataloader:
             test_batch = DataProto.from_single_dict(batch_dict)
             # Store original inputs
@@ -304,6 +305,7 @@ class RayPPOTrainer:
 
             # Store generated outputs
             output_ids = test_output_gen_batch.batch["responses"]
+            response_lengths.extend([len(ids) for ids in output_ids])
             output_texts = [self.tokenizer.decode(ids, skip_special_tokens=True) for ids in output_ids]
             sample_outputs.extend(output_texts)
             sample_labels.extend(test_batch.non_tensor_batch["ground_truth"].tolist())
@@ -323,7 +325,8 @@ class RayPPOTrainer:
         self._maybe_log_val_generations(sample_inputs, sample_outputs, sample_labels, sample_scores)
         reward_score = torch.cat(reward_tensor_lst, dim=0).sum(-1).mean().item()
         val_reward_metrics = {f"val/{key}_reward": value for key, value in reduce_metrics(reward_metrics_lst).items()}
-        return {"val/reward_score": reward_score, **val_reward_metrics}
+        mean_response_length = sum(response_lengths) / len(response_lengths)
+        return {"val/reward_score": reward_score, "val/mean_response_length": mean_response_length, **val_reward_metrics}
 
     def init_workers(self) -> None:
         """Init resource pool and worker group"""
