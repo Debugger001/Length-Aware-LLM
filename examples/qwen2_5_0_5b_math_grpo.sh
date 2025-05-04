@@ -13,5 +13,3 @@ python3 -m verl.trainer.main \
     worker.actor.model.model_path=${MODEL_PATH} \
     trainer.experiment_name=test_qwen2_5_0_5b_math_grpo \
     trainer.n_gpus_per_node=2
-    config=examples/config.yaml \
-    worker.actor.model.model_path=${MODEL_PATH}

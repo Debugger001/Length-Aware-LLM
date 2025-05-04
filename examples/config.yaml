@@ -22,8 +22,8 @@ algorithm:
   use_kl_loss: true
   kl_penalty: low_var_kl
   kl_coef: 1.0e-2
-  lambda_len_init: 4.0e-3
-  dual_lr: 4.0e-3
+  lambda_len_init: 2.0e-3
+  dual_lr: 1.0e-3
   threshold: 400
 
 worker:
