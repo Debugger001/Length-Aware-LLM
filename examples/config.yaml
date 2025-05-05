@@ -6,7 +6,7 @@ data:
   image_key: images
   max_prompt_length: 2048
   max_response_length: 2048
-  rollout_batch_size: 128
+  rollout_batch_size: 512
   val_batch_size: 1024
   format_prompt: ./examples/format_prompt/math_format.jinja
   override_chat_template: null
@@ -22,15 +22,15 @@ algorithm:
   use_kl_loss: true
   kl_penalty: low_var_kl
   kl_coef: 1.0e-2
-  lambda_len_init: 3.0e-3
-  dual_lr: 3.0e-3
-  threshold: 375
+  lambda_len_init: 3.5e-3
+  dual_lr: 3.5e-3
+  threshold: 380
 
 worker:
   actor:
-    global_batch_size: 16
+    global_batch_size: 128
     micro_batch_size_per_device_for_update: 4
-    micro_batch_size_per_device_for_experience: 4
+    micro_batch_size_per_device_for_experience: 16
     max_grad_norm: 1.0
     padding_free: true
     ulysses_sequence_parallel_size: 1
@@ -53,7 +53,7 @@ worker:
       offload_optimizer: true  # true: more CPU memory; false: more GPU memory
 
   rollout:
-    n: 3
+    n: 5
     temperature: 1.0
     top_p: 0.99
     gpu_memory_utilization: 0.6
