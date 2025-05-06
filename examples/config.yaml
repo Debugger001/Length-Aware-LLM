@@ -22,10 +22,10 @@ algorithm:
   use_kl_loss: true
   kl_penalty: low_var_kl
   kl_coef: 1.0e-2
-  penalty_cap: 4.0e-2
-  lambda_len_init: 0.0e-3
+  penalty_cap: 3.0e-2
+  lambda_len_init: 2.0e-3
   dual_lr: 3.5e-3
-  hit_cap_coef: 5
+  hit_cap_coef: 10
   threshold: 380
 
 worker:
