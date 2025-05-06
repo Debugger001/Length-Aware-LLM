@@ -70,9 +70,11 @@ class AlgorithmConfig:
     kl_type: str = "fixed"
     kl_horizon: float = 0.0
     kl_target: float = 0.0
-    lambda_len_init: float = 1e-2
-    dual_lr: float = 1e-2
-    threshold: float = 500
+    penalty_cap: 4.0e-2
+    lambda_len_init: 0.0e-3
+    dual_lr: 3.5e-3
+    hit_cap_coef: 5
+    threshold: 380
 
 
 @dataclass
