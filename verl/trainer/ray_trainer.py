@@ -564,102 +564,21 @@ class RayPPOTrainer:
                         # get token level scores
                         reward_tensor, reward_metrics = ray.get(reward_ref)
 
-                        # print("Reward tensor shape:", reward_tensor.shape)
-                        # response_lengths = batch.batch["response_mask"].sum(dim=1)  # [batch_size]
-                        # row_sums = reward_tensor.sum(dim=1)
-                        # nonzero_mask = row_sums >= 0.7  # [batch_size]
-
-                        # # Loop through non-zero rows and print only up to response_length
-                        # cnt = 0
-                        # torch.set_printoptions(threshold=float('inf'))
-                        # for i in torch.where(nonzero_mask)[0]:
-                        #     idx = i.item()
-                        #     rlen = response_lengths[idx].item()
-                        #     nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
-                        #     print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen}")
-                        #     print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
-                        #     cnt += 1
-                        # print("*"*100)
-                        # print("Count = ", cnt)
-
-                        # Apply length-based penalty to correct responses
-
-                        # lambda_len = self.config.algorithm.lambda_len  # Define lambda_len in your PPOConfig
-                        # if "score" in reward_metrics:
-                            # is_correct = torch.tensor(reward_metrics["score"], dtype=torch.float32, device=response_lengths.device) >= 0.9
-                        # elif "overall" in reward_metrics:
-                            # is_correct = torch.tensor(reward_metrics["overall"], dtype=torch.float32, device=response_lengths.device) >= 0.7
-                        # else:
-                            # raise ValueError("Neither 'score' nor 'overall' found in reward metrics for correctness checking.")
-                        
-                        # correct_reward_tensor = reward_tensor[is_correct]  # shape: [#correct, seq_len]
-
-                        # print("Correct response count:", is_correct.sum().item())
-                        # print("Correct reward tensor shape:", correct_reward_tensor.shape)
-                        # print("Correct reward tensor sum per response:", correct_reward_tensor.sum(dim=1))
-                        # print("Correct reward tensor stats — max:", correct_reward_tensor.max().item(), "min:", correct_reward_tensor.min().item())
-
-                        # penalty = (lambda_len * response_lengths / threshold) * torch.tensor(is_correct, dtype=torch.float32, device=response_lengths.device)
-
-
-
                         # add length penalty here to reward
-                        # target_lengths = torch.tensor(batch.meta_info["target_lengths"], device=reward_tensor.device).long()
                         response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
                         actual_lengths = torch.sum(response_mask, dim=1)
-
-                        # correct_bool = (reward_tensor.sum(dim=1) >= 0.5)  # 1 if any token has (accuracy) reward
-                        # correct = correct_bool.float()
-                        # incorrect_bool = (reward_tensor.sum(dim=1) < 0.5)
-                        # incorrect = incorrect_bool.float()
-                        # over_length_bool = (actual_lengths > target_lengths)
-                        # over_length = over_length_bool.float()
-                        # too_long_bool = (actual_lengths > target_lengths * (self.config.algorithm.ezprompt_ratio + 0.7))
-                        # too_long = too_long_bool.float()
-                        # ezprompt_bool = (actual_lengths < self.config.algorithm.ezprompt_ratio * target_lengths)
-                        # ezprompt = ezprompt_bool.float()
-
-                        # Penalty mask: only apply when (correct AND too long AND target not too low) OR (incorrect AND tooooooo long)
-                        # penalty_mask = correct * over_length * ezprompt + incorrect * too_long
-                        # penalty_mask = penalty_mask[:, None].expand_as(reward_tensor)
-
                         length_penalty = (actual_lengths.float() / self.threshold).clamp(min=0)
+
                         # create a zero tensor and scatter the per‑sample penalty onto last‑token positions
                         penalty = torch.zeros_like(reward_tensor)                                # (B, T)
                         last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
                         penalty.scatter_(1, last_idx, length_penalty.unsqueeze(1))               # put penalty at final token
-
-                        # test
-                        # last_token_rewards = reward_tensor.sum(dim=1, keepdim=True)
-                        # reconstructed_reward = torch.zeros_like(reward_tensor)
-                        # reconstructed_reward.scatter_(1, last_idx, last_token_rewards)
 
                         penalty = self.lambda_len * penalty
 
                         clipped_penalty = torch.clamp(penalty, min=0.0, max=0.02)
 
                         reward_tensor = reward_tensor - clipped_penalty
-
-                        # Subtract penalty only at last token for correct responses
-                        # for i in range(reward_tensor.size(0)):
-                            # if is_correct[i]:
-                                # last_token_idx = response_lengths[i] - 1
-                                # reward_tensor[i, last_token_idx] -= penalty[i]
-
-                        # Loop through non-zero rows and print only up to response_length
-                        # nonzero_mask = row_sums != 0  # [batch_size]
-                        # cnt = 0
-                        # torch.set_printoptions(threshold=float('inf'))
-                        # for i in torch.where(nonzero_mask)[0]:
-                            # idx = i.item()
-                            # rlen = response_lengths[idx].item()
-                            # nz = (reward_tensor[idx] != 0).nonzero(as_tuple=True)[0]
-                            # pen = rlen / threshold
-                            # print(f"Correct sample {idx} → reward at token {nz.item()} | response length = {rlen} | penalty = {pen}")
-                            # print(f"Reward row for sample {idx}:\n", reward_tensor[idx].cpu())
-                            # cnt += 1
-                        # print("*"*100)
-                        # print("Count = ", cnt)
 
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
@@ -698,58 +617,10 @@ class RayPPOTrainer:
                         metrics.update(actor_metrics)
 
                     # update lambda for length penalty
-                    response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
-                    actual_lengths = torch.sum(response_mask, dim=1)
-                    length_penalty = (actual_lengths.float() / self.threshold).clamp(min=0)
                     avg_act_targ = length_penalty.mean().item()
-                    # avg_penalty_w0 = clipped_penalty.mean().item()
-                    # mean of *actual* penalties (ignore zeros)
-                    # nonzero_mask = clipped_penalty != 0
-                    # if nonzero_mask.any():
-                        # avg_penalty = clipped_penalty[nonzero_mask].mean().item()
-                    # else:
-                        # avg_penalty = 0.0
-
-                    # print("#"*50)
-                    # print("actual_lengths:", actual_lengths)
-                    # print("target_lengths:", target_lengths)
-                    # print("avg actual/target:", avg_act_targ)
-                    # print(f"avg_penalty: {avg_penalty}")
-                    # print("*"*50)
-                    # metrics.update({
-                    #     "len/actual_mean": actual_lengths.float().mean().item(),
-                    #     "len/target_mean": target_lengths.float().mean().item(),
-                    #     "len/frac_over": (actual_lengths > target_lengths).float().mean().item(),
-                    #     # "len/penalty_p50": torch.quantile(length_penalty, 0.5).item(),
-                    #     # "len/penalty_p90": torch.quantile(length_penalty, 0.9).item(),
-                    #     # "len/ezprompt_rate": ezprompt.mean().item(),
-                    #     "len/penalty_ratio": penalty_mask.mean().item(),
-                    #     "len/lambda": self.lambda_len,
-                    #     "len/avg_actl tgt": avg_act_targ,
-                    #     "len/avg_penalty": avg_penalty,
-                    #     "len/penalty_correct": length_penalty[correct_bool].mean().item()
-                    #                         if correct_bool.any() else 0.0,
-                    #     "len/penalty_incorrect": length_penalty[~correct_bool].mean().item(),
-                    #     "len/clip_rate": (penalty > self.config.algorithm.max_len_penalty).float().mean().item(),
-                    #     # "len/avg_penalty_w0": avg_penalty_w0,
-                    #     # optional: save raw reward before penalty if you cached it
-                    #     # "reward/raw_mean": raw_reward.mean().item(),
-                    # })
-
-                    # beta = 0.9
-                    # exclude extreme cases where actual / target ≥ ezprompt_ratio  **or** ≤ shortresp_ratio
-                    # valid_mask = (length_penalty < self.config.algorithm.ezprompt_ratio) & (length_penalty > self.config.algorithm.shortresp_ratio)
-                    # if valid_mask.any():
-                        # avg_act_targ = length_penalty[valid_mask].mean().item()
-                    # else:
-                        # avg_act_targ = 2.0
                     lambda_new = max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), 0.0)
                     # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
                     self.lambda_len = lambda_new
-
-                    # log fraction of samples that contribute to the dual update
-                    # metrics["len/valid_ratio"] = valid_mask.float().mean().item()
-                    # metrics["len/valid_act_targ"] = avg_act_targ
                     metrics["len/lambda_len"] = lambda_new
 
                     # validate
