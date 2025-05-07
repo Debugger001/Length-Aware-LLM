@@ -17,7 +17,7 @@ python3 -m verl.trainer.main \
     worker.actor.global_batch_size=16 \
     worker.actor.micro_batch_size_per_device_for_experience=4 \
     data.rollout_batch_size=128 \
-    algorithm.hit_cap_coef=100 \
+    algorithm.hit_cap_coef=50 \
     algorithm.penalty_cap=0.03 \
     algorithm.lambda_len_init=0.003 \
     algorithm.dual_lr=0.004 \

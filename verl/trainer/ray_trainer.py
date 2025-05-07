@@ -585,6 +585,8 @@ class RayPPOTrainer:
 
                         total_penalty = clipped_penalty + clipped_hit_cap_penalty
 
+                        metrics["len/max_penalty"] = torch.max(total_penalty).detach().item()
+
                         reward_tensor = reward_tensor - total_penalty
 
                         batch.batch["token_level_scores"] = reward_tensor
