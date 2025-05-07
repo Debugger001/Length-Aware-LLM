@@ -15,7 +15,7 @@ python3 -m verl.trainer.main \
     trainer.n_gpus_per_node=4 \
     algorithm.hit_cap_coef=50 \
     algorithm.penalty_cap=0.1 \
-    algorithm.lambda_len_init=0.01 \
-    algorithm.dual_lr=0.006 \
+    algorithm.lambda_len_init=0.02 \
+    algorithm.dual_lr=0.01 \
     algorithm.hit_cap_coef=100 \
     algorithm.threshold=380
