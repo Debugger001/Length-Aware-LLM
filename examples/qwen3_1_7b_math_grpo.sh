@@ -8,6 +8,8 @@ MODEL_PATH=Qwen/Qwen3-1.7B  # replace it with your local file path
 PROJECT_NAME=Length-LLM
 
 export CUDA_VISIBLE_DEVICES=0,1
+ray stop --force
+ray start --head
 
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
