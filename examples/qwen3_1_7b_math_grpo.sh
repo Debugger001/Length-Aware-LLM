@@ -7,7 +7,7 @@ export PYTHONUNBUFFERED=1
 MODEL_PATH=Qwen/Qwen3-1.7B  # replace it with your local file path
 PROJECT_NAME=Length-LLM
 
-CUDA_VISIBLE_DEVICES=0,1,2,3,4,5 python3 -m verl.trainer.main \
+CUDA_VISIBLE_DEVICES=0,1 python3 -m verl.trainer.main \
     config=examples/config.yaml \
     data.max_response_length=4096 \
     worker.actor.model.model_path=${MODEL_PATH} \
