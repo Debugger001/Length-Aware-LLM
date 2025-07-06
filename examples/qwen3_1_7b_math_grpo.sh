@@ -7,7 +7,7 @@ export PYTHONUNBUFFERED=1
 MODEL_PATH=Qwen/Qwen3-1.7B  # replace it with your local file path
 PROJECT_NAME=Length-LLM
 
-export CUDA_VISIBLE_DEVICES=0,1
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4
 ray stop --force
 ray start --head
 
