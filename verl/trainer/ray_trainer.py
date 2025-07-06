@@ -603,8 +603,54 @@ class RayPPOTrainer:
 
                 with timer("adv", timing_raw):
                     if "token_level_scores" not in batch.batch:
-                        # get token level scores asynchronously
+                        # get token level scores
                         reward_tensor, reward_metrics = ray.get(reward_ref)
+
+                        # extract lengths
+                        response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
+                        actual_lengths = torch.sum(response_mask, dim=1)
+                        length_ratio = (actual_lengths.float() / self.threshold).clamp(min=0)
+
+                        # log response lengths
+                        avg_len = actual_lengths.float().mean().item()
+                        if not hasattr(self, "_len_ema"):
+                            self._len_ema = avg_len          # seed on first call
+                        ema_beta = 0.9                           # smoothing factor
+                        self._len_ema = ema_beta * self._len_ema + (1 - ema_beta) * avg_len
+                        metrics["len/avg_len"]       = avg_len
+                        metrics["len/avg_len_ema"] = self._len_ema
+
+                        # update lambda for length penalty
+                        avg_act_targ = length_ratio.mean().item()
+                        lambda_new = max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor)
+                        # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
+                        self.lambda_len = lambda_new
+                        metrics["len/lambda_len"] = lambda_new
+                        metrics["len/avg_ratio"] = avg_act_targ
+                        
+                        # add length penalty
+                        rel_excess = (actual_lengths.float() - self.threshold) / self.threshold
+                        raw_penalty = torch.where(rel_excess > 0, rel_excess, 0)
+                        penalty = torch.zeros_like(reward_tensor)                                # (B, T)
+                        last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
+                        # penalty.scatter_(1, last_idx, length_ratio.unsqueeze(1))               # put penalty at final token
+                        penalty.scatter_(1, last_idx, raw_penalty.unsqueeze(1))               # put penalty at final token
+                        penalty = self.lambda_len * penalty
+                        clipped_penalty = torch.clamp(penalty, min=0, max=self.config.algorithm.penalty_cap)
+
+                        len_cap = self.config.data.max_response_length
+                        hit_cap_idx = (actual_lengths == len_cap).float()
+                        hit_cap_penalty = torch.zeros_like(reward_tensor)
+                        hit_cap_penalty.scatter_(1, last_idx, hit_cap_idx.unsqueeze(1))
+                        hit_cap_penalty = self.config.algorithm.hit_cap * hit_cap_penalty
+                        # clipped_hit_cap_penalty = torch.clamp(hit_cap_penalty, min=0.0, max=self.config.algorithm.penalty_cap)
+
+                        total_penalty = clipped_penalty + hit_cap_penalty
+
+                        metrics["len/max_penalty"] = torch.max(total_penalty).detach().item()
+
+                        reward_tensor = reward_tensor - total_penalty
+                        
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
