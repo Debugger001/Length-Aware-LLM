@@ -102,6 +102,14 @@ class AlgorithmConfig:
     filter_high: float = 0.99
     """filter out high reward samples if online filtering"""
 
+    """Length-Aware LLMs hyperparameters"""
+    penalty_cap: float = 4.0e-2
+    lambda_len_init: float = 0.0e-3
+    dual_lr: float = 3.5e-3
+    hit_cap: float = 1.0e-2
+    threshold: float = 380
+    lambda_floor: float = 3.0e-4
+
 
 @dataclass
 class TrainerConfig:
