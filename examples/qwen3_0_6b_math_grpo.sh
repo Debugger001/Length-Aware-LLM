@@ -3,11 +3,11 @@
 set -x
 
 export PYTHONUNBUFFERED=1
+export CUDA_VISIBLE_DEVICES=4,5,6,7
 
 MODEL_PATH=Qwen/Qwen3-0.6B  # replace it with your local file path
 PROJECT_NAME=Length-LLM
 
-export CUDA_VISIBLE_DEVICES=4,5,6,7
 ray stop --force
 ray start --head
 
