@@ -20,4 +20,11 @@ python3 -m verl.trainer.main \
     worker.actor.global_batch_size=64 \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=40 \
-    data.rollout_batch_size=128
+    data.rollout_batch_size=128 \
+    algorithm.penalty_cap=0.4 \
+    algorithm.lambda_len_init=0.0003 \
+    algorithm.dual_lr=0.0002 \
+    algorithm.lambda_floor=0.0001 \
+    algorithm.hit_cap=0.1 \
+    algorithm.threshold=375 \
+    worker.rollout.n=5 
