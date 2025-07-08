@@ -176,6 +176,10 @@ class RayPPOTrainer:
         self.config = config
         self.reward_fn = reward_fn
         self.val_reward_fn = val_reward_fn
+        """Length-Aware LLMs"""
+        self.lambda_len = self.config.algorithm.lambda_len_init
+        self.dual_lr = self.config.algorithm.dual_lr
+        self.threshold = self.config.algorithm.threshold
 
         self.val_reward_score = 0.0
         self.best_val_reward_score = -1.0
@@ -650,7 +654,7 @@ class RayPPOTrainer:
                         metrics["len/max_penalty"] = torch.max(total_penalty).detach().item()
 
                         reward_tensor = reward_tensor - total_penalty
-                        
+
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
