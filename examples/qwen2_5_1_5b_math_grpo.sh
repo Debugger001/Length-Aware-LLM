@@ -3,6 +3,7 @@
 set -x
 
 export PYTHONUNBUFFERED=1
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=Qwen/Qwen2.5-1.5B-Instruct  # replace it with your local file path
 
