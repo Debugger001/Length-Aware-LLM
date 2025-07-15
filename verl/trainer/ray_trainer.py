@@ -633,8 +633,9 @@ class RayPPOTrainer:
                         metrics["len/avg_ratio"] = avg_act_targ
                         
                         # add length penalty
-                        rel_excess = (actual_lengths.float() - self.threshold) / self.threshold
-                        raw_penalty = torch.where(rel_excess > 0, rel_excess, 0)
+                        # rel_excess = (actual_lengths.float() - self.threshold) / self.threshold
+                        # raw_penalty = torch.where(rel_excess > 0, rel_excess, 0)
+                        raw_penalty = actual_lengths.float() / self.threshold
                         penalty = torch.zeros_like(reward_tensor)                                # (B, T)
                         last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
                         # penalty.scatter_(1, last_idx, length_ratio.unsqueeze(1))               # put penalty at final token
