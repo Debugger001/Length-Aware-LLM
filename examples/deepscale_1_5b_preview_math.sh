@@ -14,16 +14,16 @@ ray start --head
 
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
-    data.train_files=agentica-org/DeepScaleR-Preview-Dataset \
-    data.val_files=hiyouga/math12k@test \
+    data.train_files=hiyouga/math12k@train \
+    data.val_files=HuggingFaceH4/MATH-500 \
     worker.actor.model.model_path=${MODEL_PATH} \
-    data.rollout_batch_size=128 \
-    data.max_response_length=4096 \
+    data.rollout_batch_size=256 \
+    data.max_response_length=2048 \
     worker.actor.global_batch_size=32 \
-    trainer.experiment_name=deepscale_1.5b_math \
+    trainer.experiment_name=deepscale_1.5b_deepscaler \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
-    trainer.save_freq=25 \
+    trainer.save_freq=29 \
     trainer.load_checkpoint_path=${CKPT_PATH} \
     algorithm.penalty_cap=0.4 \
     algorithm.lambda_len_init=0.0003 \
