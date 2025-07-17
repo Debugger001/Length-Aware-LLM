@@ -30,6 +30,6 @@ python3 -m verl.trainer.main \
     algorithm.dual_lr=0.0002 \
     algorithm.lambda_floor=0.0001 \
     algorithm.hit_cap=0.1 \
-    algorithm.threshold=500 \
+    algorithm.threshold=350 \
     data.seed=20250521 \
     worker.rollout.n=3 
