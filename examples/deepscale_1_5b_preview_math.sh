@@ -5,8 +5,8 @@ set -x
 export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
-# MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
-MODEL_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_math/global_step_160/actor/huggingface
+MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
+CKPT_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_math/global_step_160/
 PROJECT_NAME=Length-LLM
 
 ray stop --force
@@ -24,6 +24,7 @@ python3 -m verl.trainer.main \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=25 \
+    trainer.load_checkpoint_path=${CKPT_PATH} \
     algorithm.penalty_cap=0.4 \
     algorithm.lambda_len_init=0.0003 \
     algorithm.dual_lr=0.0002 \
