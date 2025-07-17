@@ -402,6 +402,10 @@ class RayPPOTrainer:
             test_output_gen_batch = self.actor_rollout_ref_wg.generate_sequences(test_gen_batch)
             test_output_gen_batch = unpad_dataproto(test_output_gen_batch, pad_size=pad_size * repeat_times)
 
+            response_mask = test_output_gen_batch.batch["response_mask"]
+            actual_lengths = response_mask.sum(dim=1).tolist()  # list of ints
+            response_lengths.extend(actual_lengths)
+
             # repeat to align with repeated responses in rollout
             test_batch = test_batch.repeat(repeat_times=repeat_times, interleave=True)
             test_batch = test_batch.union(test_output_gen_batch)
