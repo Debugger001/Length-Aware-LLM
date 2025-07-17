@@ -14,7 +14,7 @@ ray start --head
 
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
-    data.train_files=AI-MO/NuminaMath-CoT@train \
+    data.train_files=hiyouga/math12k@train \
     data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=256 \
