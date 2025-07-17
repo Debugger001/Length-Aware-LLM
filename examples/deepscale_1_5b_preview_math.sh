@@ -5,7 +5,8 @@ set -x
 export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
-MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
+# MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
+MODEL_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_math/global_step_160/actor/huggingface
 PROJECT_NAME=Length-LLM
 
 ray stop --force
@@ -15,9 +16,7 @@ python3 -m verl.trainer.main \
     config=examples/config.yaml \
     data.train_files=agentica-org/DeepScaleR-Preview-Dataset \
     data.val_files=hiyouga/math12k@test \
-    # worker.actor.model.model_path=${MODEL_PATH} \
-    trainer.resume_mode=resume_path \
-    trainer.resume_from_path=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_math/global_step_160/actor \
+    worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=128 \
     data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
