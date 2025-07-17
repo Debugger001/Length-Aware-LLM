@@ -14,8 +14,8 @@ ray start --head
 
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
-    data.train_files=AI-MO/NuminaMath-CoT \
-    data.val_files=HuggingFaceH4/MATH-500 \
+    data.train_files=AI-MO/NuminaMath-CoT@train \
+    data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=256 \
     data.max_response_length=2048 \
