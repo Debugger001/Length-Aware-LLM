@@ -26,10 +26,10 @@ python3 -m verl.trainer.main \
     trainer.n_gpus_per_node=8 \
     trainer.save_freq=20 \
     algorithm.penalty_cap=0.4 \
-    algorithm.lambda_len_init=0 \
+    algorithm.lambda_len_init=0.011667 \
     algorithm.dual_lr=0.0002 \
     algorithm.lambda_floor=0.0001 \
     algorithm.hit_cap=0.1 \
     algorithm.threshold=500 \
     data.seed=20250521 \
-    worker.rollout.n=5
+    worker.rollout.n=4
