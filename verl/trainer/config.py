@@ -109,6 +109,7 @@ class AlgorithmConfig:
     hit_cap: float = 1.0e-2
     threshold: float = 380
     lambda_floor: float = 3.0e-4
+    lambda_ceil: float = 2.0e-3
 
 
 @dataclass

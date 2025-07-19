@@ -30,6 +30,13 @@ algorithm:
   filter_key: overall
   filter_low: 0.01
   filter_high: 0.99
+  penalty_cap: 3.0e-1
+  lambda_len_init: 2.0e-3
+  dual_lr: 3.5e-3
+  hit_cap: 2.0e-1
+  threshold: 380
+  lambda_floor: 3.0e-4
+  lambda_ceil: 2.0e-3
 
 worker:
   actor:
