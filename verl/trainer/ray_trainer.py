@@ -634,7 +634,7 @@ class RayPPOTrainer:
                         # update lambda for length penalty
                         avg_act_targ = length_ratio.mean().item()
                         # lambda_new = max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor)
-                        lambda_new = torch.clamp(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), min=self.config.algorithm.lambda_floor, max=self.config.algorithm.lambda_ceil)
+                        lambda_new = min(max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor), self.config.algorithm.lambda_ceil)
                         # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
                         self.lambda_len = lambda_new
                         metrics["len/lambda_len"] = lambda_new
