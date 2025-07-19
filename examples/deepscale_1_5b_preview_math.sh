@@ -6,7 +6,7 @@ export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
-CKPT_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_1000_ceil/global_step_60/actor
+CKPT_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_1000_ceil/global_step_60
 PROJECT_NAME=Length-LLM
 
 ray stop --force
