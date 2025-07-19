@@ -30,6 +30,6 @@ python3 -m verl.trainer.main \
     algorithm.lambda_floor=0.00001 \
     algorithm.lambda_ceil=0.002 \
     algorithm.hit_cap=0.1 \
-    algorithm.threshold=1000 \
+    algorithm.threshold=800 \
     data.seed=20250521 \
     worker.rollout.n=4
