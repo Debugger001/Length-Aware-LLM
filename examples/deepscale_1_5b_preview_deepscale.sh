@@ -17,7 +17,7 @@ python3 -m verl.trainer.main \
     data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=128 \
-    data.max_response_length=2048 \
+    data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
     trainer.experiment_name=deepscale_1.5b_deepscaler_1000_grpo_base \
     trainer.project_name=Length-LLM \
