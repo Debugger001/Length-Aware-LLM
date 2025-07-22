@@ -6,6 +6,7 @@ export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
+SAVE_PATH=/data/cliu/checkpoints/Length-LLM/deepscale_1.5b_math_800_0721/
 CKPT_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_2000/global_step_140
 PROJECT_NAME=Length-LLM
 
@@ -18,6 +19,7 @@ python3 -m verl.trainer.main \
     data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     trainer.load_checkpoint_path=${CKPT_PATH} \
+    trainer.save_checkpoint_path=${SAVE_PATH} \
     data.rollout_batch_size=128 \
     data.max_response_length=2048 \
     worker.actor.global_batch_size=32 \
