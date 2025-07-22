@@ -21,7 +21,7 @@ python3 -m verl.trainer.main \
     trainer.load_checkpoint_path=${CKPT_PATH} \
     trainer.save_checkpoint_path=${SAVE_PATH} \
     data.rollout_batch_size=128 \
-    data.max_response_length=2048 \
+    data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
     trainer.experiment_name=deepscale_1.5b_math_800_0721 \
     trainer.project_name=Length-LLM \
