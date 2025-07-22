@@ -19,7 +19,7 @@ python3 -m verl.trainer.main \
     worker.actor.model.model_path=${MODEL_PATH} \
     trainer.load_checkpoint_path=${CKPT_PATH} \
     data.rollout_batch_size=128 \
-    data.max_response_length=4000 \
+    data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
     trainer.experiment_name=deepscale_1.5b_math_800_0721 \
     trainer.project_name=Length-LLM \
