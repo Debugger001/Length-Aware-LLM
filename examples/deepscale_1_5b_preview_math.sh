@@ -6,7 +6,6 @@ export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
-# SAVE_PATH=/data/cliu/checkpoints/Length-LLM/deepscale_1.5b_math_800_0721/
 CKPT_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_2000/global_step_120
 PROJECT_NAME=Length-LLM
 
