@@ -5,7 +5,7 @@ set -x
 export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
-MODEL_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_2000/global_step_120/huggingface # replace it with your local file path
+MODEL_PATH=/home/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_2000/global_step_140/huggingface # replace it with your local file path
 # CKPT_PATH=/data/cliu/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_2000/global_step_120
 PROJECT_NAME=Length-LLM
 
