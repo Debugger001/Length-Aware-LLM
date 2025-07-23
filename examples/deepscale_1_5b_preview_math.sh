@@ -21,7 +21,7 @@ python3 -m verl.trainer.main \
     data.rollout_batch_size=128 \
     data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
-    trainer.experiment_name=deepscale_1.5b_math_600_0723 \
+    trainer.experiment_name=deepscale_1.5b_math_500_0723_2 \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=10 \
@@ -30,8 +30,8 @@ python3 -m verl.trainer.main \
     algorithm.lambda_len_init=0 \
     algorithm.dual_lr=0.0002 \
     algorithm.lambda_floor=0.0001 \
-    algorithm.lambda_ceil=0.5 \
+    algorithm.lambda_ceil=0.02 \
     algorithm.hit_cap=0.1 \
-    algorithm.threshold=600 \
+    algorithm.threshold=500 \
     data.seed=20250521 \
     worker.rollout.n=4 
