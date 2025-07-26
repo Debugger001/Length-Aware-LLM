@@ -6,7 +6,7 @@ export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
-CKPT_PATH=/data/cliu/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_2000/global_step_140
+CKPT_PATH=/data/cliu/checkpoints/Length-LLM/deepscale_1.5b_deepscaler_1000_0725/global_step_250
 PROJECT_NAME=Length-LLM
 
 ray stop --force
@@ -21,12 +21,12 @@ python3 -m verl.trainer.main \
     data.rollout_batch_size=128 \
     data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
-    trainer.experiment_name=deepscale_1.5b_deepscaler_1000_0725 \
+    trainer.experiment_name=deepscale_1.5b_deepscaler_1000_0725_contd \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=10 \
     algorithm.penalty_cap=0.4 \
-    algorithm.lambda_len_init=0 \
+    algorithm.lambda_len_init=0.00013978 \
     algorithm.dual_lr=0.002 \
     algorithm.lambda_floor=0.00001 \
     algorithm.lambda_ceil=0.1 \
