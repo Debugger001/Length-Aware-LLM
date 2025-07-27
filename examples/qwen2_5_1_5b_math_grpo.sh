@@ -13,20 +13,22 @@ ray start --head
 
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
-    data.train_files=hiyouga/math12k@train \
-    data.val_files=hiyouga/math12k@test \
+    data.train_files=agentica-org/DeepScaleR-Preview-Dataset \
+    data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=128 \
-    worker.actor.global_batch_size=64 \
-    trainer.experiment_name=test_qwen2_5_1.5b_math_grpo \
+    data.max_response_length=4096 \
+    worker.actor.global_batch_size=32 \
+    trainer.experiment_name=qwen2_5_1.5b_deepscaler_500 \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
-    trainer.save_freq=40 \
+    trainer.save_freq=10 \
     algorithm.penalty_cap=0.4 \
-    algorithm.lambda_len_init=0.0003 \
-    algorithm.dual_lr=0.0002 \
-    algorithm.lambda_floor=0.0001 \
+    algorithm.lambda_len_init=0.00013978 \
+    algorithm.dual_lr=0.002 \
+    algorithm.lambda_floor=0.00001 \
+    algorithm.lambda_ceil=0.1 \
     algorithm.hit_cap=0.1 \
-    algorithm.threshold=285 \
+    algorithm.threshold=500 \
     data.seed=20250521 \
-    worker.rollout.n=5 
+    worker.rollout.n=4
