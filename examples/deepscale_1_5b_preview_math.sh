@@ -27,10 +27,10 @@ python3 -m verl.trainer.main \
     trainer.save_limit=4 \
     algorithm.penalty_cap=0.4 \
     algorithm.lambda_len_init=0 \
-    algorithm.dual_lr=0.0002 \
+    algorithm.dual_lr=0.0001 \
     algorithm.lambda_floor=0.0001 \
     algorithm.lambda_ceil=0.02 \
     algorithm.hit_cap=0.1 \
-    algorithm.threshold=450 \
+    algorithm.threshold=500 \
     data.seed=20250521 \
     worker.rollout.n=4 
