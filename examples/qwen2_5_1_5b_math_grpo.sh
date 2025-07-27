@@ -24,7 +24,7 @@ python3 -m verl.trainer.main \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=10 \
     algorithm.penalty_cap=0.4 \
-    algorithm.lambda_len_init=0.00013978 \
+    algorithm.lambda_len_init=0 \
     algorithm.dual_lr=0.002 \
     algorithm.lambda_floor=0.00001 \
     algorithm.lambda_ceil=0.1 \
