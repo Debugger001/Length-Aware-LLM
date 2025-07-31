@@ -630,15 +630,6 @@ class RayPPOTrainer:
                         self._len_ema = ema_beta * self._len_ema + (1 - ema_beta) * avg_len
                         metrics["len/avg_len"]       = avg_len
                         metrics["len/avg_len_ema"] = self._len_ema
-
-                        # update lambda for length penalty
-                        avg_act_targ = length_ratio.mean().item()
-                        # lambda_new = max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor)
-                        lambda_new = min(max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor), self.config.algorithm.lambda_ceil)
-                        # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
-                        self.lambda_len = lambda_new
-                        metrics["len/lambda_len"] = lambda_new
-                        metrics["len/avg_ratio"] = avg_act_targ
                         
                         # add length penalty
                         rel_excess = (actual_lengths.float() - self.threshold) / self.threshold
@@ -666,6 +657,15 @@ class RayPPOTrainer:
                         batch.batch["token_level_scores"] = reward_tensor
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
+
+                        # update lambda for length penalty
+                        avg_act_targ = length_ratio.mean().item()
+                        # lambda_new = max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor)
+                        lambda_new = min(max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor), self.config.algorithm.lambda_ceil)
+                        # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
+                        self.lambda_len = lambda_new
+                        metrics["len/lambda_len"] = lambda_new
+                        metrics["len/avg_ratio"] = avg_act_targ
 
                     # apply kl penalty if available
                     if not self.config.algorithm.use_kl_loss and self.use_reference_policy:
