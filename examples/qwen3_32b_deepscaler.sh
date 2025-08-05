@@ -21,7 +21,7 @@ python3 -m verl.trainer.main \
     worker.actor.global_batch_size=32 \
     trainer.experiment_name=deepscale_1.5b_deepscaler_1200_0804 \
     trainer.project_name=Length-LLM \
-    trainer.n_gpus_per_node=4 \
+    trainer.n_gpus_per_node=8 \
     trainer.save_freq=25 \
     algorithm.penalty_cap=0.4 \
     algorithm.lambda_len_init=0 \
