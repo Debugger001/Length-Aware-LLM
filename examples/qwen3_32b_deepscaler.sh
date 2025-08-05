@@ -3,7 +3,6 @@
 set -x
 
 export PYTHONUNBUFFERED=1
-export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=Qwen/Qwen3-32B  # replace it with your local file path
 PROJECT_NAME=Length-LLM
