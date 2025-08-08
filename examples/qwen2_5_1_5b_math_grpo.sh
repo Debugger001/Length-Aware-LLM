@@ -13,15 +13,16 @@ ray start --head
 
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
-    data.train_files=hiyouga/math12k@train \
+    data.train_files=agentica-org/DeepScaleR-Preview-Dataset \
     data.val_files=hiyouga/math12k@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=128 \
-    worker.actor.global_batch_size=64 \
-    trainer.experiment_name=test_qwen2_5_1.5b_math_grpo \
+    data.max_response_length=4096 \
+    worker.actor.global_batch_size=32 \
+    trainer.experiment_name=test_qwen2_5_1.5b_ds_grpo_0808 \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
-    trainer.save_freq=40 \
-    trainer.save_limit=4 \
+    trainer.save_freq=25 \
+    trainer.save_limit=3 \
     data.seed=20250521 \
-    worker.rollout.n=5 
+    worker.rollout.n=4
