@@ -13,13 +13,14 @@ ray start --head
 
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
-    data.train_files=hiyouga/math12k@train \
+    data.train_files= \
+    data.val_files=agentica-org/DeepScaleR-Preview-Dataset \
     data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=128 \
     data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
-    trainer.experiment_name=qwen2_5_1.5b_deepscaler_500_0808 \
+    trainer.experiment_name=qwen2_5_1.5b_deepscaler_500_0809 \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=25 \
