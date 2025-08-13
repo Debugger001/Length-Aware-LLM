@@ -377,6 +377,7 @@ class RayPPOTrainer:
 
     def _validate(self) -> Dict[str, Any]:
         reward_tensor_lst = []
+        response_lengths = []
         # Lists to collect samples for the table
         sample_inputs, sample_outputs, sample_labels, sample_scores = [], [], [], []
         reward_metrics_lst = defaultdict(list)
@@ -397,6 +398,10 @@ class RayPPOTrainer:
             test_gen_batch, pad_size = pad_dataproto_to_divisor(test_gen_batch, self.actor_rollout_ref_wg.world_size)
             test_output_gen_batch = self.actor_rollout_ref_wg.generate_sequences(test_gen_batch)
             test_output_gen_batch = unpad_dataproto(test_output_gen_batch, pad_size=pad_size * repeat_times)
+
+            response_mask = test_output_gen_batch.batch["response_mask"]
+            actual_lengths = response_mask.sum(dim=1).tolist()  # list of ints
+            response_lengths.extend(actual_lengths)
 
             # repeat to align with repeated responses in rollout
             test_batch = test_batch.repeat(repeat_times=repeat_times, interleave=True)
@@ -425,7 +430,9 @@ class RayPPOTrainer:
         self.val_reward_score = torch.cat(reward_tensor_lst, dim=0).sum(-1).mean().item()
         val_reward_metrics = {f"val/{key}_reward": value for key, value in reduce_metrics(reward_metrics_lst).items()}
         print("Finish validation.")
-        return {"val/reward_score": self.val_reward_score, **val_reward_metrics}
+        # return {"val/reward_score": self.val_reward_score, **val_reward_metrics}
+        mean_response_length = sum(response_lengths) / len(response_lengths)
+        return {"val/reward_score": self.val_reward_score, **val_reward_metrics, "val/mean_response_length": mean_response_length}
 
     def _balance_batch(self, batch: DataProto, metrics: Dict[str, Any], logging_prefix: str = "global_seqlen") -> None:
         """Reorder the data on single controller such that each dp rank gets similar total tokens"""
