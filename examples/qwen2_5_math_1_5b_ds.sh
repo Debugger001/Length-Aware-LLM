@@ -25,7 +25,7 @@ python3 -m verl.trainer.main \
     trainer.save_freq=25 \
     algorithm.penalty_cap=0.4 \
     algorithm.lambda_len_init=0 \
-    algorithm.dual_lr=0.0002 \
+    algorithm.dual_lr=0.002 \
     algorithm.lambda_floor=0.00001 \
     algorithm.lambda_ceil=0.1 \
     algorithm.hit_cap=0.1 \
