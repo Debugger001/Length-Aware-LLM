@@ -26,9 +26,9 @@ python3 -m verl.trainer.main \
     algorithm.penalty_cap=0.4 \
     algorithm.lambda_len_init=0 \
     algorithm.dual_lr=0.0002 \
-    algorithm.lambda_floor=0.00001 \
+    algorithm.lambda_floor=0.00000 \
     algorithm.lambda_ceil=0.1 \
     algorithm.hit_cap=0.1 \
-    algorithm.threshold=600 \
+    algorithm.threshold=550 \
     data.seed=20250521 \
     worker.rollout.n=4
