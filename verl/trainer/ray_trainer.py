@@ -48,6 +48,49 @@ from .config import PPOConfig
 from .core_algos import AdvantageEstimator, FixedKLController, KLController, compute_kl, get_kl_controller
 from .metrics import compute_data_metrics, compute_throughout_metrics, compute_timing_metrics, reduce_metrics
 
+import psutil
+try:
+    import pynvml; pynvml.nvmlInit()
+except Exception:
+    pynvml = None
+
+def cuda_mem_gb(device=None):
+    if not torch.cuda.is_available():
+        return {}
+    device = torch.cuda.current_device() if device is None else device
+    return {
+        "mem_cuda_alloc_gb": torch.cuda.memory_allocated(device) / (1024**3),
+        "mem_cuda_reserved_gb": torch.cuda.memory_reserved(device) / (1024**3),
+    }
+
+def cpu_mem_gb():
+    try:
+        rss = psutil.Process(os.getpid()).memory_info().rss / (1024**3)
+        return {"mem_cpu_rss_gb": rss}
+    except Exception:
+        return {}
+
+def nvml_mem_gb(device_index=0):
+    if pynvml is None:
+        return {}
+    h = pynvml.nvmlDeviceGetHandleByIndex(device_index)
+    info = pynvml.nvmlDeviceGetMemoryInfo(h)
+    return {
+        "mem_nvml_used_gb": info.used / (1024**3),
+        "mem_nvml_total_gb": info.total / (1024**3),
+    }
+
+def estimate_flops(step_tokens:int, n_params:int, mode:str="train"):
+    # Decoder-only rule of thumb: ~6·N FLOPs/token for training, ~2·N for inference
+    if step_tokens <= 0 or n_params <= 0:
+        return 0
+    base = 6 if mode == "train" else 2
+    return step_tokens * base * n_params
+
+def achieved_tflops(flops:int, seconds:float):
+    return (flops / 1e12 / seconds) if seconds > 0 else 0.0
+
+
 
 class Role(IntEnum):
     """
@@ -304,6 +347,12 @@ class RayPPOTrainer:
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_ref_wg = all_wg["actor_rollout_ref"]
         self.actor_rollout_ref_wg.init_model()
+
+        # How many trainable params? (fallback to config if you don't add a worker method)
+        self._n_params = int(getattr(self.config.model, "n_params", 0))
+        # For MFU. Set env var to your GPU BF16 peak, e.g., 312 for A100 80GB, 989 for H100 SXM.
+        self._gpu_peak_tflops = float(os.environ.get("GPU_PEAK_TFLOPS", "0") or 0.0)
+
 
     def _save_checkpoint(self) -> None:
         # path: {save_checkpoint_path}/global_step_{global_step}/{actor,critic}
@@ -576,6 +625,9 @@ class RayPPOTrainer:
 
             metrics, timing_raw = {}, {}
             with timer("step", timing_raw):
+                if torch.cuda.is_available():
+                    torch.cuda.reset_peak_memory_stats()
+
                 # make a batch of data
                 with timer("gen", timing_raw):
                     self.actor_rollout_ref_wg.prepare_rollout_engine()
@@ -617,55 +669,86 @@ class RayPPOTrainer:
                         # get token level scores
                         reward_tensor, reward_metrics = ray.get(reward_ref)
 
-                        # extract lengths
-                        response_mask = batch.batch["response_mask"][:, -reward_tensor.shape[1]:]
-                        actual_lengths = torch.sum(response_mask, dim=1)
-                        length_ratio = (actual_lengths.float() / self.threshold).clamp(min=0)
+                        with torch.no_grad():
+                            reward = reward_tensor                                   # (B, T)
+                            dev, dt = reward.device, reward.dtype
+                            B, T = reward.shape
 
-                        # log response lengths
-                        avg_len = actual_lengths.float().mean().item()
-                        if not hasattr(self, "_len_ema"):
-                            self._len_ema = avg_len          # seed on first call
-                        ema_beta = 0.9                           # smoothing factor
-                        self._len_ema = ema_beta * self._len_ema + (1 - ema_beta) * avg_len
-                        metrics["len/avg_len"]       = avg_len
-                        metrics["len/avg_len_ema"] = self._len_ema
-                        
-                        # add length penalty
-                        rel_excess = (actual_lengths.float() - self.threshold) / self.threshold
-                        raw_penalty = torch.where(rel_excess > 0, rel_excess, 0)
-                        penalty = torch.zeros_like(reward_tensor)                                # (B, T)
-                        last_idx = (actual_lengths - 1).unsqueeze(1)                             # (B, 1)
-                        # penalty.scatter_(1, last_idx, length_ratio.unsqueeze(1))               # put penalty at final token
-                        penalty.scatter_(1, last_idx, raw_penalty.unsqueeze(1))               # put penalty at final token
-                        penalty = self.lambda_len * penalty
-                        clipped_penalty = torch.clamp(penalty, min=0, max=self.config.algorithm.penalty_cap)
+                            # 1) lengths & last index
+                            resp_mask = batch.batch["response_mask"][:, -T:]      
+                            actual_lengths = resp_mask.sum(dim=1)                
+                            last_idx = (actual_lengths - 1).clamp_min_(0)        
+                            rows = torch.arange(B, device=dev)
 
-                        len_cap = self.config.data.max_response_length
-                        hit_cap_idx = (actual_lengths == len_cap).float()
-                        hit_cap_penalty = torch.zeros_like(reward_tensor)
-                        hit_cap_penalty.scatter_(1, last_idx, hit_cap_idx.unsqueeze(1))
-                        hit_cap_penalty = self.config.algorithm.hit_cap * hit_cap_penalty
-                        # clipped_hit_cap_penalty = torch.clamp(hit_cap_penalty, min=0.0, max=self.config.algorithm.penalty_cap)
+                            # 2) avg length + EMA (tensors only; avoid host syncs here)
+                            avg_len = actual_lengths.to(dt).mean()
+                            if not hasattr(self, "_len_ema"):
+                                self._len_ema = avg_len
+                            else:
+                                self._len_ema = 0.9 * self._len_ema + 0.1 * avg_len
+                            metrics["len/avg_len"] = avg_len
+                            metrics["len/avg_len_ema"] = self._len_ema
 
-                        total_penalty = clipped_penalty + hit_cap_penalty
+                            # 3) fused penalty per sample, applied ONLY at final token (no (B,T) temporaries, no scatter)
+                            thr = torch.tensor(float(self.threshold), device=dev, dtype=dt)
+                            inv_thr = thr.reciprocal()
 
-                        metrics["len/max_penalty"] = torch.max(total_penalty).detach().item()
+                            # rel_excess = max(0, (L - thr)/thr)
+                            rel_excess = (actual_lengths.to(dt) - thr).relu_().mul_(inv_thr)  # (B,)
 
-                        reward_tensor = reward_tensor - total_penalty
+                            # base penalty λ * rel_excess
+                            lam = torch.tensor(float(self.lambda_len), device=dev, dtype=dt)
+                            pen_vals = lam * rel_excess                                                   # (B,)
 
-                        batch.batch["token_level_scores"] = reward_tensor
-                        reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
-                        metrics.update(reward_metrics)
+                            # optional cap
+                            pen_cap = float(getattr(self.config.algorithm, "penalty_cap", 0.0) or 0.0)
+                            if pen_cap > 0.0:
+                                pen_vals.clamp_(max=pen_cap)
 
-                        # update lambda for length penalty
-                        avg_act_targ = length_ratio.mean().item()
-                        # lambda_new = max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor)
-                        lambda_new = min(max(self.lambda_len + self.dual_lr * (avg_act_targ - 1.0), self.config.algorithm.lambda_floor), self.config.algorithm.lambda_ceil)
-                        # self.lambda_len = beta * lambda_new + (1 - beta) * lambda_old
-                        self.lambda_len = lambda_new
-                        metrics["len/lambda_len"] = lambda_new
-                        metrics["len/avg_ratio"] = avg_act_targ
+                            # optional extra penalty on hitting max response length
+                            hit_cap = float(getattr(self.config.algorithm, "hit_cap", 0.0) or 0.0)
+                            if hit_cap != 0.0:
+                                len_cap = int(self.config.data.max_response_length)
+                                pen_vals = pen_vals + (actual_lengths == len_cap).to(dt) * hit_cap
+
+                            # apply penalty only at last valid token
+                            pen_vals = pen_vals.to(dt)
+                            reward[rows, last_idx] = reward[rows, last_idx] - pen_vals
+
+                            metrics["len/max_penalty"] = pen_vals.max()
+
+                            # 4) dual update all on GPU; only one sync when assigning the Python float
+                            length_ratio = (actual_lengths.to(dt) * inv_thr).clamp_min_(0)     # (B,)
+                            avg_act_targ = length_ratio.mean()
+
+                            lr    = torch.tensor(float(self.config.algorithm.dual_lr), device=dev)
+                            floor = torch.tensor(float(self.config.algorithm.lambda_floor), device=dev)
+                            ceil  = torch.tensor(float(self.config.algorithm.lambda_ceil),  device=dev)
+                            lam   = lam.add(lr * (avg_act_targ - 1.0)).clamp_(min=floor.item(), max=ceil.item())
+                            self.lambda_len = float(lam.item())   # single host sync
+
+                            metrics["len/lambda_len"] = lam
+                            metrics["len/length_ratio"] = avg_act_targ
+
+                            # 5) PERF LOGGING (memory + token counts + FLOPs estimate)
+                            # Memory (GPU/CPU/NVML)
+                            metrics.update(cuda_mem_gb())
+                            metrics.update(cpu_mem_gb())
+                            try:
+                                device_index = torch.cuda.current_device() if torch.cuda.is_available() else 0
+                                metrics.update(nvml_mem_gb(device_index))
+                            except Exception:
+                                pass
+
+                            # Tokens used by the update (sum of response lengths)
+                            train_tokens = int(actual_lengths.sum().item())
+                            metrics["update/tokens"] = train_tokens
+
+                            # FLOPs estimate for the *training* step: ~6 * N_params per token (decoder-only)
+                            n_params = getattr(self, "_n_params", 0)
+                            if n_params:
+                                est_flops = estimate_flops(step_tokens=train_tokens, n_params=n_params, mode="train")
+                                metrics["update/est_flops"] = est_flops
 
                     # apply kl penalty if available
                     if not self.config.algorithm.use_kl_loss and self.use_reference_policy:
@@ -698,6 +781,19 @@ class RayPPOTrainer:
 
                     actor_metrics = reduce_metrics(actor_output.non_tensor_batch)
                     metrics.update(actor_metrics)
+                
+                upd_t = float(timing_raw.get("update_actor", 0.0))
+                upd_tokens = int(metrics.get("update/tokens", 0))
+                if self._n_params and upd_t > 0 and upd_tokens > 0:
+                    est_flops = estimate_flops(upd_tokens, self._n_params, mode="train")
+                    tflops = achieved_tflops(est_flops, upd_t)  # cluster TFLOPs/s
+                    metrics["update/est_flops"] = est_flops
+                    metrics["update/achieved_tflops"] = tflops
+
+                    if self._gpu_peak_tflops > 0:
+                        num_gpus = self.resource_pool_manager.get_num_gpus()
+                        if num_gpus > 0:
+                            metrics["perf/mfu_actor"] = tflops / (self._gpu_peak_tflops * num_gpus)
 
                 # validate
                 if (
@@ -719,6 +815,11 @@ class RayPPOTrainer:
             metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
             metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
             metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, num_gpus=num_gpus))
+
+            if torch.cuda.is_available():
+                metrics["mem_cuda_max_alloc_gb"] = torch.cuda.max_memory_allocated() / (1024**3)
+                metrics["mem_cuda_max_reserved_gb"] = torch.cuda.max_memory_reserved() / (1024**3)
+
 
             self.logger.log(data=metrics, step=self.global_step)
             main_tqdm.update()
