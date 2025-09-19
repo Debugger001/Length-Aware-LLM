@@ -697,6 +697,8 @@ class RayPPOTrainer:
                             pen_vals = pen_vals.to(dt)
                             reward[rows, last_idx] = reward[rows, last_idx] - pen_vals
 
+                            batch.batch["token_level_scores"] = reward
+
                             metrics["len/max_penalty"] = pen_vals.max()
 
                             # 4) dual update all on GPU; only one sync when assigning the Python float
