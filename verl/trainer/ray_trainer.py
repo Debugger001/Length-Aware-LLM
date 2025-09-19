@@ -698,6 +698,8 @@ class RayPPOTrainer:
                             reward[rows, last_idx] = reward[rows, last_idx] - pen_vals
 
                             batch.batch["token_level_scores"] = reward
+                            reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
+                            metrics.update(reward_metrics)
 
                             metrics["len/max_penalty"] = pen_vals.max()
 
