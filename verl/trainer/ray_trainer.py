@@ -80,18 +80,6 @@ def nvml_mem_gb(device_index=0):
         "mem_nvml_total_gb": info.total / (1024**3),
     }
 
-def estimate_flops(step_tokens:int, n_params:int, mode:str="train"):
-    # Decoder-only rule of thumb: ~6·N FLOPs/token for training, ~2·N for inference
-    if step_tokens <= 0 or n_params <= 0:
-        return 0
-    base = 6 if mode == "train" else 2
-    return step_tokens * base * n_params
-
-def achieved_tflops(flops:int, seconds:float):
-    return (flops / 1e12 / seconds) if seconds > 0 else 0.0
-
-
-
 class Role(IntEnum):
     """
     To create more roles dynamically, you can subclass Role and add new members
@@ -347,12 +335,6 @@ class RayPPOTrainer:
         # we should create rollout at the end so that vllm can have a better estimation of kv cache memory
         self.actor_rollout_ref_wg = all_wg["actor_rollout_ref"]
         self.actor_rollout_ref_wg.init_model()
-
-        # How many trainable params? (fallback to config if you don't add a worker method)
-        self._n_params = int(getattr(self.config.model, "n_params", 0))
-        # For MFU. Set env var to your GPU BF16 peak, e.g., 312 for A100 80GB, 989 for H100 SXM.
-        self._gpu_peak_tflops = float(os.environ.get("GPU_PEAK_TFLOPS", "0") or 0.0)
-
 
     def _save_checkpoint(self) -> None:
         # path: {save_checkpoint_path}/global_step_{global_step}/{actor,critic}
@@ -744,12 +726,6 @@ class RayPPOTrainer:
                             train_tokens = int(actual_lengths.sum().item())
                             metrics["update/tokens"] = train_tokens
 
-                            # FLOPs estimate for the *training* step: ~6 * N_params per token (decoder-only)
-                            n_params = getattr(self, "_n_params", 0)
-                            if n_params:
-                                est_flops = estimate_flops(step_tokens=train_tokens, n_params=n_params, mode="train")
-                                metrics["update/est_flops"] = est_flops
-
                     # apply kl penalty if available
                     if not self.config.algorithm.use_kl_loss and self.use_reference_policy:
                         # apply kl penalty to reward
@@ -784,16 +760,9 @@ class RayPPOTrainer:
                 
                 upd_t = float(timing_raw.get("update_actor", 0.0))
                 upd_tokens = int(metrics.get("update/tokens", 0))
-                if self._n_params and upd_t > 0 and upd_tokens > 0:
-                    est_flops = estimate_flops(upd_tokens, self._n_params, mode="train")
-                    tflops = achieved_tflops(est_flops, upd_t)  # cluster TFLOPs/s
-                    metrics["update/est_flops"] = est_flops
-                    metrics["update/achieved_tflops"] = tflops
-
-                    if self._gpu_peak_tflops > 0:
-                        num_gpus = self.resource_pool_manager.get_num_gpus()
-                        if num_gpus > 0:
-                            metrics["perf/mfu_actor"] = tflops / (self._gpu_peak_tflops * num_gpus)
+                if upd_t > 0 and upd_tokens > 0:
+                    metrics["perf/actor_tok_per_s"] = upd_tokens / upd_t
+                    metrics["perf/actor_time_per_token_s"] = upd_t / upd_tokens
 
                 # validate
                 if (
