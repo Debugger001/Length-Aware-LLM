@@ -48,6 +48,41 @@ from .config import PPOConfig
 from .core_algos import AdvantageEstimator, FixedKLController, KLController, compute_kl, get_kl_controller
 from .metrics import compute_data_metrics, compute_throughout_metrics, compute_timing_metrics, reduce_metrics
 
+# NEW: perf/memory helpers (same as LACONIC)
+import psutil
+try:
+    import pynvml; pynvml.nvmlInit()
+except Exception:
+    pynvml = None
+
+def cuda_mem_gb(device=None):
+    import torch
+    if not torch.cuda.is_available():
+        return {}
+    device = torch.cuda.current_device() if device is None else device
+    return {
+        "mem_cuda_alloc_gb": torch.cuda.memory_allocated(device) / (1024**3),
+        "mem_cuda_reserved_gb": torch.cuda.memory_reserved(device) / (1024**3),
+    }
+
+def cpu_mem_gb():
+    try:
+        rss = psutil.Process(os.getpid()).memory_info().rss / (1024**3)
+        return {"mem_cpu_rss_gb": rss}
+    except Exception:
+        return {}
+
+def nvml_mem_gb(device_index=0):
+    if pynvml is None:
+        return {}
+    h = pynvml.nvmlDeviceGetHandleByIndex(device_index)
+    info = pynvml.nvmlDeviceGetMemoryInfo(h)
+    return {
+        "mem_nvml_used_gb": info.used / (1024**3),
+        "mem_nvml_total_gb": info.total / (1024**3),
+    }
+
+
 
 class Role(IntEnum):
     """
@@ -572,6 +607,11 @@ class RayPPOTrainer:
 
             metrics, timing_raw = {}, {}
             with timer("step", timing_raw):
+
+                # reset peak mem only when we plan to log it
+                if torch.cuda.is_available():
+                    torch.cuda.reset_peak_memory_stats()
+
                 # make a batch of data
                 with timer("gen", timing_raw):
                     self.actor_rollout_ref_wg.prepare_rollout_engine()
@@ -616,6 +656,22 @@ class RayPPOTrainer:
                         reward_metrics = {f"reward/{k}": v for k, v in reduce_metrics(reward_metrics).items()}
                         metrics.update(reward_metrics)
 
+                    # NEW: tokens this update (sum of response lengths aligned to reward T)
+                    reward_tensor = batch.batch["token_level_scores"]
+                    T = reward_tensor.shape[1]
+                    resp_mask = batch.batch["response_mask"][:, -T:]
+                    actual_lengths = resp_mask.sum(dim=1)                 # (B,)
+                    metrics["update/tokens"] = int(actual_lengths.sum().item())
+
+                    # Log memory every step (match LACONIC cadence)
+                    metrics.update(cuda_mem_gb())
+                    metrics.update(cpu_mem_gb())
+                    try:
+                        device_index = torch.cuda.current_device() if torch.cuda.is_available() else 0
+                        metrics.update(nvml_mem_gb(device_index))
+                    except Exception:
+                        pass
+
                     # apply kl penalty if available
                     if not self.config.algorithm.use_kl_loss and self.use_reference_policy:
                         # apply kl penalty to reward
@@ -648,6 +704,14 @@ class RayPPOTrainer:
                     actor_metrics = reduce_metrics(actor_output.non_tensor_batch)
                     metrics.update(actor_metrics)
 
+                # NEW: tokens/sec and time/token using update_actor wall time
+                upd_t = float(timing_raw.get("update_actor", 0.0))
+                upd_tokens = int(metrics.get("update/tokens", 0))
+                if upd_t > 0 and upd_tokens > 0:
+                    metrics["perf/actor_tok_per_s"] = upd_tokens / upd_t
+                    metrics["perf/actor_time_per_token_s"] = upd_t / upd_tokens
+
+
                 # validate
                 if (
                     self.val_reward_fn is not None
@@ -668,6 +732,12 @@ class RayPPOTrainer:
             metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
             metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
             metrics.update(compute_throughout_metrics(batch=batch, timing_raw=timing_raw, num_gpus=num_gpus))
+
+            # NEW: peak CUDA memory for this step (matches LACONIC metric names)
+            if torch.cuda.is_available():
+                metrics["mem_cuda_max_alloc_gb"] = torch.cuda.max_memory_allocated() / (1024**3)
+                metrics["mem_cuda_max_reserved_gb"] = torch.cuda.max_memory_reserved() / (1024**3)
+
 
             self.logger.log(data=metrics, step=self.global_step)
             main_tqdm.update()
