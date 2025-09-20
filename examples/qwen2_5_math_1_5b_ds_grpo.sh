@@ -6,7 +6,7 @@ export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=Qwen/Qwen2.5-Math-1.5B-Instruct  # replace it with your local file path
-CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/qwen2_5_math_1.5b_ds_grpo_0815/global_step_100
+CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/qwen2_5_math_1.5b_ds_grpo_0815/global_step_100/
 PROJECT_NAME=Length-LLM
 
 ray stop --force
