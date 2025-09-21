@@ -25,6 +25,7 @@ python3 -m verl.trainer.main \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=25 \
+    trainer.val_freq=50 \
     trainer.save_limit=1 \
     data.seed=20250521 \
-    worker.rollout.n=4
+    worker.rollout.n=2
