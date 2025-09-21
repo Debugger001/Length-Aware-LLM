@@ -6,7 +6,7 @@ export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 MODEL_PATH=Qwen/Qwen2.5-Math-1.5B-Instruct  # replace it with your local file path
-CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/qwen2_5_math_1.5b_ds_grpo_0815/global_step_100/
+CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/qwen2_5_math_1.5b_ds_grpo_0815/global_step_150/
 PROJECT_NAME=Length-LLM
 
 ray stop --force
@@ -21,7 +21,7 @@ python3 -m verl.trainer.main \
     data.rollout_batch_size=128 \
     data.max_response_length=2048 \
     worker.actor.global_batch_size=32 \
-    trainer.experiment_name=qwen2_5_math_1.5b_ds_grpo_0920 \
+    trainer.experiment_name=qwen2_5_math_1.5b_ds_grpo_0921 \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=4 \
     trainer.save_freq=25 \
