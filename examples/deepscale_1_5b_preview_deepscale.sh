@@ -3,7 +3,7 @@
 set -x
 
 export PYTHONUNBUFFERED=1
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
 # CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscaler_1.5b_deepscaler_1500_nf_0905/global_step_300
@@ -20,16 +20,16 @@ python3 -m verl.trainer.main \
     data.rollout_batch_size=128 \
     data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
-    trainer.experiment_name=deepscaler_1.5b_deepscaler_1000_nf_0923 \
+    trainer.experiment_name=deepscaler_1.5b_deepscaler_1000_nf_0930 \
     trainer.project_name=Length-LLM \
-    trainer.n_gpus_per_node=4 \
+    trainer.n_gpus_per_node=8 \
     trainer.save_freq=25 \
     trainer.save_limit=4 \
     algorithm.penalty_cap=0.4 \
     algorithm.lambda_len_init=0.00000 \
-    algorithm.dual_lr=0.0001 \
+    algorithm.dual_lr=0.002 \
     algorithm.lambda_floor=0.00000 \
-    algorithm.lambda_ceil=0.02 \
+    algorithm.lambda_ceil=10 \
     algorithm.hit_cap=0.1 \
     algorithm.threshold=1000 \
     data.seed=20250521 \
