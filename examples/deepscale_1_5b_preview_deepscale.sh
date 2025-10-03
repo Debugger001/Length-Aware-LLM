@@ -29,7 +29,7 @@ python3 -m verl.trainer.main \
     algorithm.lambda_len_init=0.00000 \
     algorithm.dual_lr=0.002 \
     algorithm.lambda_floor=0.00000 \
-    algorithm.lambda_ceil=0.01 \
+    algorithm.lambda_ceil=0.03 \
     algorithm.hit_cap=0.1 \
     algorithm.threshold=1000 \
     data.seed=20250521 \
