@@ -15,7 +15,7 @@ ray start --head
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
     data.train_files=agentica-org/DeepScaleR-Preview-Dataset \
-    trainer.load_checkpoint_path=${CKPT_PATH}$ \
+    trainer.load_checkpoint_path=${CKPT_PATH} \
     data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=128 \
