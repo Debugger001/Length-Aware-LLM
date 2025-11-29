@@ -6,7 +6,8 @@ export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 MODEL_PATH=deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B  # replace it with your local file path
-CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepseek_1.5b_deepscaler_1500_1124/global_step_200/
+# CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepseek_1.5b_deepscaler_1500_1124/global_step_200/
+# trainer.load_checkpoint_path=${CKPT_PATH} \
 PROJECT_NAME=Length-LLM
 
 ray stop --force
@@ -15,7 +16,6 @@ ray start --head
 python3 -m verl.trainer.main \
     config=examples/config.yaml \
     data.train_files=agentica-org/DeepScaleR-Preview-Dataset \
-    trainer.load_checkpoint_path=${CKPT_PATH} \
     data.val_files=HuggingFaceH4/MATH-500@test \
     worker.actor.model.model_path=${MODEL_PATH} \
     data.rollout_batch_size=128 \
