@@ -20,7 +20,7 @@ python3 -m verl.trainer.main \
     data.rollout_batch_size=128 \
     data.max_response_length=4096 \
     worker.actor.global_batch_size=32 \
-    trainer.experiment_name=deepseek_1.5b_deepscaler_grpo_base_1122 \
+    trainer.experiment_name=deepseek_1.5b_deepscaler_grpo_base_0105 \
     trainer.project_name=Length-LLM \
     trainer.n_gpus_per_node=8 \
     trainer.save_freq=25 \
