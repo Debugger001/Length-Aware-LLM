@@ -29,8 +29,8 @@ python3 -m verl.trainer.main \
     algorithm.lambda_len_init=0.00000 \
     algorithm.dual_lr=0.01 \
     algorithm.lambda_floor=0.00000 \
-    algorithm.lambda_ceil=0.1 \
+    algorithm.lambda_ceil=0.15 \
     algorithm.hit_cap=0.1 \
     algorithm.threshold=1500 \
     data.seed=20250521 \
-    worker.rollout.n=2
+    worker.rollout.n=3
