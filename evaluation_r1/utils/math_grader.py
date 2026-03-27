@@ -12,6 +12,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+<<<<<<< HEAD
+"""Math answer grading utilities for eval_llm.py."""
+
+from mathruler.grader import extract_boxed_content, grade_answer
+
+
+def boxed_reward_fn(model_output: str, gt) -> float:
+    """Extract boxed answer and grade against ground truth.
+
+    Args:
+        model_output: Raw model output string.
+        gt: Ground truth answer (str, int, float, or list of those).
+
+    Returns:
+        1.0 if correct, 0.0 otherwise.
+    """
+    extracted_answer = extract_boxed_content(model_output)
+
+    if isinstance(gt, (float, int)):
+        gt = str(gt)
+
+    if isinstance(gt, str):
+        return 1.0 if grade_answer(extracted_answer, gt) else 0.0
+    elif isinstance(gt, list):
+        is_correct = False
+        for gt_item in gt:
+            if isinstance(gt_item, (float, int)):
+                gt_item = str(gt_item)
+            is_correct |= grade_answer(extracted_answer, gt_item)
+        return 1.0 if is_correct else 0.0
+
+    return 0.0
+=======
 """Provides a math answer grading function with high recall.
 Based on HF math_verify, verl, open reasoner zero, etc.
 """
@@ -1073,3 +1106,4 @@ def answer_tag_reward_fn_for_orz(model_response, gt_answer, fast=False):
             )  # Formatted but wrong answer; no format reward to avoid hacking.
     else:
         return {"formatted": False}, 0.0  # Unformatted.
+>>>>>>> bae9dbd89aa20027ab24b51f368d0033c0b3970e

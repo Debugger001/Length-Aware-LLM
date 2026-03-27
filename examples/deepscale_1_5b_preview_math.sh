@@ -2,6 +2,9 @@
 
 set -x
 
+source /home/lliu/miniconda3/etc/profile.d/conda.sh
+conda activate LACONIC
+
 export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
