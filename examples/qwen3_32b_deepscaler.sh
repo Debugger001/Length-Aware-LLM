@@ -2,6 +2,9 @@
 
 set -x
 
+source /home/lliu/miniconda3/etc/profile.d/conda.sh
+conda activate LACONIC
+
 export PYTHONUNBUFFERED=1
 
 MODEL_PATH=Qwen/Qwen3-32B  # replace it with your local file path
