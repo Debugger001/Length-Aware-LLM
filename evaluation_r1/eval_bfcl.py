@@ -1,42 +1,76 @@
+import glob
 import json
 import os
 import subprocess
-import glob
 from pathlib import Path
 
 import fire
 import numpy as np
 
 
-DEFAULT_TEST_CATEGORIES = [
-    "simple_python",
-    "parallel",
-    "multiple",
-    "irrelevance",
-]
-
-# Optionally add later if you want a broader check:
-# "multi_turn", "live_simple", "live_multiple", ...
+DEFAULT_TEST_CATEGORIES = ["all"]
 
 
 def _run_cmd(cmd, env=None):
-    print("\n[Running]", " ".join(cmd))
+    print("\n[Running]")
+    print(" ".join(cmd))
     subprocess.run(cmd, check=True, env=env)
+
+
+def _is_hf_model_id(model_path: str) -> bool:
+    """
+    Accept strings like:
+      agentica-org/DeepScaleR-1.5B-Preview
+    but not:
+      /abs/path/to/model
+      ./relative/path
+      ../relative/path
+    """
+    if not isinstance(model_path, str) or len(model_path.strip()) == 0:
+        return False
+
+    if model_path.startswith("/") or model_path.startswith("./") or model_path.startswith("../"):
+        return False
+
+    parts = model_path.split("/")
+    return len(parts) == 2 and all(len(p) > 0 for p in parts)
+
+
+def _validate_model_path(model_path: str):
+    is_local_dir = os.path.isdir(model_path)
+    is_hf_id = _is_hf_model_id(model_path)
+
+    if not is_local_dir and not is_hf_id:
+        raise ValueError(
+            f"model_path must be either a local directory or a Hugging Face repo id, got: {model_path}"
+        )
 
 
 def _find_score_files(score_root: Path, model_name: str, test_categories: list[str]):
     """
-    BFCL usually writes score files like:
-      score/MODEL_NAME/BFCL_v3_TEST_CATEGORY_score.json
-    We glob to avoid hard-coding the exact BFCL version prefix.
+    BFCL usually writes files like:
+      score/<model_name>/*_<category>_score.json
     """
     model_score_dir = score_root / model_name
     found = {}
+
+    if not model_score_dir.exists():
+        return found
+
     for cat in test_categories:
         pattern = str(model_score_dir / f"*_{cat}_score.json")
         matches = sorted(glob.glob(pattern))
         if matches:
             found[cat] = matches[-1]
+
+    # Special case: when test_categories includes "all" or "all_scoring",
+    # BFCL may emit many per-category files rather than one literal "*_all_score.json".
+    if "all" in test_categories or "all_scoring" in test_categories:
+        all_matches = sorted(glob.glob(str(model_score_dir / "*_score.json")))
+        for path in all_matches:
+            name = os.path.basename(path)
+            found[name] = path
+
     return found
 
 
@@ -47,51 +81,52 @@ def _read_json(path):
 
 def _extract_scalar_scores(score_json):
     """
-    BFCL score JSON schemas can evolve.
-    We keep this robust and only pull obvious scalar metrics if present.
+    Robust extraction of obvious scalar metrics from BFCL score jsons.
     """
     out = {}
 
-    if isinstance(score_json, dict):
-        for k, v in score_json.items():
-            if isinstance(v, (int, float, str, bool)) or v is None:
-                out[k] = v
+    if not isinstance(score_json, dict):
+        return out
 
-        # Common nested shapes
-        for key in ["summary", "metrics", "result", "scores"]:
-            if key in score_json and isinstance(score_json[key], dict):
-                for k, v in score_json[key].items():
-                    if isinstance(v, (int, float, str, bool)) or v is None:
-                        out[f"{key}.{k}"] = v
+    for k, v in score_json.items():
+        if isinstance(v, (int, float, str, bool)) or v is None:
+            out[k] = v
+
+    for key in ["summary", "metrics", "result", "scores"]:
+        if key in score_json and isinstance(score_json[key], dict):
+            for k, v in score_json[key].items():
+                if isinstance(v, (int, float, str, bool)) or v is None:
+                    out[f"{key}.{k}"] = v
 
     return out
 
 
 def main(
     model_paths: list[str],
-    model_names: list[str] | None = None,
+    model_names: list[str] = None,
     test_categories: list[str] = DEFAULT_TEST_CATEGORIES,
     backend: str = "vllm",
     num_gpus: int = 1,
     gpu_memory_utilization: float = 0.9,
-    project_root: str = "./bfcl_runs",
-    result_json: str = "./bfcl_runs/summary.json",
+    project_root: str = "./evaluation_r1/bfcl_runs",
+    result_json: str = "./evaluation_r1/bfcl_runs/summary.json",
     skip_generation: bool = False,
     skip_evaluation: bool = False,
-    extra_generate_args: list[str] | None = None,
+    extra_generate_args: list[str] = None,
 ):
     """
     Example:
-    python eval_bfcl_local.py \
-      --model_paths '["/path/to/base_merged", "/path/to/laconic_merged"]' \
-      --model_names '["base", "laconic"]'
-
-    Notes:
-    - model_paths should be merged/full HF checkpoints.
-    - No LoRA flags are used.
+    python evaluation_r1/eval_bfcl.py \
+      --model_paths '["agentica-org/DeepScaleR-1.5B-Preview"]' \
+      --model_names '["DeepScaleR-1.5B-Preview"]' \
+      --test_categories '["all"]' \
+      --backend vllm \
+      --num_gpus 4 \
+      --gpu_memory_utilization 0.9
     """
+
     if model_names is None:
-        model_names = [Path(p).name for p in model_paths]
+        model_names = [Path(p).name if os.path.isdir(p) else p.replace("/", "__") for p in model_paths]
 
     assert len(model_paths) == len(model_names), "model_paths and model_names must match in length"
 
@@ -114,11 +149,10 @@ def main(
     for model_name, model_path in zip(model_names, model_paths):
         print("\n" + "=" * 80)
         print(f"Evaluating model: {model_name}")
-        print(f"Path: {model_path}")
+        print(f"Model source: {model_path}")
         print("=" * 80)
 
-        if not os.path.isdir(model_path):
-            raise FileNotFoundError(f"Model path does not exist or is not a directory: {model_path}")
+        _validate_model_path(model_path)
 
         if not skip_generation:
             gen_cmd = [
@@ -169,15 +203,13 @@ def main(
 
             model_summary["per_category"][cat] = {
                 "score_file": score_file,
-                "raw": score_json,
                 "extracted": extracted,
             }
 
-            # Heuristic: collect likely accuracy-like scalar fields
             for k, v in extracted.items():
                 if isinstance(v, (int, float)):
                     lk = k.lower()
-                    if any(tok in lk for tok in ["acc", "accuracy", "score", "ast", "overall"]):
+                    if any(tok in lk for tok in ["acc", "accuracy", "score", "overall", "ast"]):
                         numeric_vals.append(float(v))
 
         model_summary["mean_extracted_metric"] = float(np.mean(numeric_vals)) if numeric_vals else None
@@ -195,7 +227,6 @@ def main(
 
     print(f"\nSaved summary to: {result_json}")
 
-    # Compact console summary
     print("\n=== Compact Summary ===")
     for model_name, model_summary in summary["models"].items():
         print(f"{model_name}: mean_extracted_metric={model_summary['mean_extracted_metric']}")
