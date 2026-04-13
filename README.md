@@ -4,7 +4,7 @@
 [![Code](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/Debugger001/Length-Aware-LLM)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
-Official implementation of **LACONIC**, a reinforcement learning method that teaches LLMs to respect a target token budget during training. Instead of only rewarding task success, LACONIC also charges a length-based cost when generations become unnecessarily long, and adjusts that cost automatically over time.
+Official implementation of **LACONIC**, a reinforcement learning method for making LLM responses substantially shorter while preserving task performance. Instead of only rewarding task success, LACONIC also charges a length-based cost when generations become unnecessarily long, and adjusts that cost automatically over time.
 
 This lets models become **shorter, cheaper, and faster at inference** without changing the decoding pipeline at deployment time.
 
@@ -29,7 +29,7 @@ Just as importantly, LACONIC is **extremely easy to implement and deploy**:
 - **Adaptive control:** automatically tune the strength of the length cost during training
 - **Easy deployment:** no architecture changes, no auxiliary model, no inference-time control logic
 - **Easy integration:** closer to a small reward modification than a new training stack
-- **Practical evaluation support:** includes reasoning, code, and BFCL evaluation utilities
+- **Evaluation support:** includes reasoning and code evaluation utilities
 
 ## Contents
 
@@ -46,15 +46,17 @@ Just as importantly, LACONIC is **extremely easy to implement and deploy**:
 
 ## Why LACONIC
 
-Reinforcement learning can improve reasoning performance, but it often makes models much more verbose. That extra verbosity increases latency and serving cost, and it is hard to control reliably with fixed heuristic penalties.
+The core value of LACONIC is simple: it can significantly reduce response length while preserving task performance.
 
-LACONIC addresses that problem directly during RL training:
+This matters because reinforcement learning often improves reasoning quality but also makes responses much longer. Those extra tokens increase latency and serving cost.
 
-- the model is rewarded for solving the task
-- the model is penalized when it exceeds a target token budget
-- the penalty strength is adjusted adaptively instead of being fixed by hand
+LACONIC addresses that tradeoff directly during RL training:
 
-In one sentence: **LACONIC makes unnecessary output tokens expensive during RL training.**
+- it preserves the usual task reward
+- it adds a cost only when the response becomes too long
+- it adjusts that cost automatically to keep outputs near a target budget
+
+In one sentence: **LACONIC significantly reduces response length while preserving task performance.**
 
 This matters because:
 
@@ -226,17 +228,6 @@ python evaluation_r1/eval_code.py \
   --greedy True
 ```
 
-BFCL evaluation:
-
-```bash
-python evaluation_r1/eval_bfcl.py \
-  --model_paths '["checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface"]' \
-  --model_names '["<release_name>"]' \
-  --test_categories '["all"]' \
-  --backend vllm \
-  --num_gpus 4
-```
-
 ## Repository Guide
 
 The main LACONIC implementation lives in:
@@ -247,7 +238,6 @@ The main LACONIC implementation lives in:
 - [`examples/`](./examples): experiment launch scripts.
 - [`evaluation_r1/eval_llm.py`](./evaluation_r1/eval_llm.py): reasoning benchmarks.
 - [`evaluation_r1/eval_code.py`](./evaluation_r1/eval_code.py): code benchmarks.
-- [`evaluation_r1/eval_bfcl.py`](./evaluation_r1/eval_bfcl.py): BFCL helper.
 - [`scripts/model_merger.py`](./scripts/model_merger.py): FSDP checkpoint merger and optional HF upload.
 
 Upstream base framework:
