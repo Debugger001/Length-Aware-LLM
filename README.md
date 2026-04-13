@@ -4,150 +4,67 @@
 [![Code](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/Debugger001/Length-Aware-LLM)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
-Official implementation of **LACONIC**, a length-aware reinforcement learning method for large language models. LACONIC enforces a target token budget during RL training by combining task reward with an adaptive length cost, yielding shorter responses without requiring any inference-time modification.
+Official implementation of **LACONIC**, a reinforcement learning method that teaches LLMs to respect a target token budget during training. Instead of only rewarding task success, LACONIC also charges a length-based cost when generations become unnecessarily long, and adjusts that cost automatically over time.
 
-This repository contains the code used for the paper and builds on top of EasyR1 / veRL. It includes training scripts, evaluation utilities, and checkpoint export tools for releasing LACONIC models.
+This lets models become **shorter, cheaper, and faster at inference** without changing the decoding pipeline at deployment time.
 
-## Quick Links
+![LACONIC overview](./assets/laconic_overview.png)
 
-- [Paper](https://arxiv.org/abs/2602.14468)
-- [Code](https://github.com/Debugger001/Length-Aware-LLM)
-- Model checkpoints: coming soon
-- Project page: coming soon
+*Overview of the LACONIC training procedure: policy updates optimize task reward under a length-aware cost, while a dual update adjusts the strength of that cost to keep generations near the desired token budget.*
 
-## At A Glance
+## Why This Is Interesting
 
-LACONIC trains LLMs to be concise **during** reinforcement learning instead of trying to force brevity only at inference time. The core idea is simple:
+Reinforcement learning can improve reasoning performance, but it often makes models much more verbose. That extra verbosity increases latency and serving cost, and it is hard to control reliably with fixed heuristic penalties.
 
-- reward the model for solving the task
-- charge a cost when the response exceeds a target token budget
-- adapt that cost automatically during training
+LACONIC addresses that problem directly during RL training:
 
-The result is a model that learns to stay short **without** changing the decoding pipeline at deployment time.
+- the model is rewarded for solving the task
+- the model is penalized when it exceeds a target token budget
+- the penalty strength is adjusted adaptively instead of being fixed by hand
 
-## Why LACONIC
+In one sentence: **LACONIC teaches the model to treat output tokens as a budget.**
 
-- Enforces a target token budget directly during RL training.
-- Preserves or improves task performance while reducing response length.
-- Integrates into standard RL fine-tuning pipelines with minimal code changes.
-- Requires no decoding tricks or post-processing at inference time.
-- Supports reasoning, code, and function-calling style evaluation workflows.
-
-## Key Claims From The Paper
+## Headline Results
 
 According to the paper abstract, LACONIC:
 
-- preserves or improves `pass@1` on mathematical reasoning benchmarks while reducing output length by over 50%
-- maintains out-of-domain performance on general knowledge and multilingual benchmarks with 44% fewer tokens
-- integrates into standard RL tuning with no inference changes and minimal deployment overhead
-
-## Results At A Glance
-
-The paper reports the following headline outcomes:
-
 | Setting | Main Outcome |
 | --- | --- |
-| Mathematical reasoning | Preserves or improves `pass@1` with **over 50% fewer output tokens** |
+| Mathematical reasoning | Preserves or improves `pass@1` while reducing output length by **over 50%** |
 | General knowledge + multilingual | Maintains out-of-domain performance with **44% fewer tokens** |
-| Deployment | **No inference-time changes** and minimal extra serving complexity |
+| Deployment | Requires **no inference-time changes** and adds minimal serving overhead |
 
-Full benchmark tables, plots, and checkpoint-specific summaries will be added here as the public release is finalized.
+Paper link: [arXiv:2602.14468](https://arxiv.org/abs/2602.14468)
 
-## Paper
+## How LACONIC Works
 
-**LACONIC: Length-Aware Constrained Reinforcement Learning for LLM**  
-Chang Liu, Yiran Zhao, Lawrence Liu, Yaoqi Ye, Csaba Szepesvári, Lin F. Yang  
-[arXiv:2602.14468](https://arxiv.org/abs/2602.14468)
+At a high level, each RL update follows this logic:
 
-## Overview
+1. Generate responses with the current policy.
+2. Compute the usual task reward.
+3. Measure whether each response exceeds the target token budget.
+4. Subtract a length-aware cost from over-budget responses.
+5. Update the policy with the combined objective.
+6. Update the dual variable so the model stays near the desired average response length.
 
-Reinforcement learning often improves reasoning quality at the cost of substantially longer outputs, which increases latency and serving cost. LACONIC addresses this by introducing a constrained RL objective that penalizes excessive response length relative to a target token budget. The penalty scale is adjusted adaptively during training, which makes the method more robust than fixed heuristic reward shaping.
+An intuitive mental model:
 
-## Intuition
+- if a response is correct and concise, it keeps the task reward and pays little or no length cost
+- if a response is correct but unnecessarily long, it pays an additional cost
+- if the model keeps overshooting the budget across training, LACONIC increases the pressure to be shorter
 
-Standard RL can accidentally reward verbosity: if longer chains of thought help a model find better answers during training, the model may keep getting longer even when those extra tokens are not worth the latency and cost.
+This is why the method is more robust than a fixed manually chosen length penalty.
 
-LACONIC changes this by adding a second training signal:
+## Why It Matters
 
-- **task reward** says "solve the problem"
-- **length cost** says "do not spend more tokens than needed"
+- Shorter outputs reduce inference latency.
+- Shorter outputs reduce serving cost.
+- Training-time length control is easier to deploy than brittle decoding-time heuristics.
+- The method integrates naturally into standard RL fine-tuning workflows.
 
-Instead of manually fixing that tradeoff once and hoping it works, LACONIC adjusts the strength of the length cost during training. If outputs are too long, the cost becomes stronger. If the model becomes too compressed and hurts performance, the optimization can relax that pressure.
+## Quick Start
 
-In one sentence: **LACONIC teaches the model to treat tokens as a budget.**
-
-## Simple Method Illustration
-
-```mermaid
-flowchart LR
-    A["Prompt"] --> B["Model generates response"]
-    B --> C["Task reward"]
-    B --> D["Length cost if response exceeds target budget"]
-    C --> E["Combined training objective"]
-    D --> E
-    E --> F["Policy update"]
-    F --> G["Adaptive length multiplier updates over time"]
-    G --> D
-```
-
-## Why This Matters
-
-- Shorter responses reduce inference latency.
-- Shorter responses reduce serving cost.
-- Training-time length control is easier to deploy than ad hoc inference-time heuristics.
-- The method is compatible with standard RL fine-tuning pipelines.
-
-## What Is In This Repo
-
-The core implementation lives in the standard RL training path:
-
-- [`verl/trainer/ray_trainer.py`](./verl/trainer/ray_trainer.py): applies the LACONIC length penalty and dual update during training.
-- [`verl/trainer/config.py`](./verl/trainer/config.py): defines length-control hyperparameters such as `threshold`, `dual_lr`, `penalty_cap`, and `hit_cap`.
-- [`examples/config.yaml`](./examples/config.yaml): base experiment config.
-- [`examples/`](./examples): launch scripts for different model families and target budgets.
-- [`evaluation_r1/eval_llm.py`](./evaluation_r1/eval_llm.py): reasoning benchmark evaluation.
-- [`evaluation_r1/eval_code.py`](./evaluation_r1/eval_code.py): code benchmark evaluation.
-- [`evaluation_r1/eval_bfcl.py`](./evaluation_r1/eval_bfcl.py): BFCL evaluation helper.
-- [`scripts/model_merger.py`](./scripts/model_merger.py): merges FSDP checkpoints and optionally uploads to the Hugging Face Hub.
-
-## Method Overview
-
-LACONIC adds a learnable length penalty to RL fine-tuning. At a high level, training proceeds as follows:
-
-1. Generate rollouts.
-2. Compute task reward.
-3. Measure how much each response exceeds a target token budget.
-4. Penalize over-budget responses with a dual variable `lambda`.
-5. Update `lambda` online so the model stays close to the desired average output length.
-
-The main public hyperparameters are:
-
-- `algorithm.threshold`: target response budget.
-- `algorithm.lambda_len_init`: initial dual variable.
-- `algorithm.dual_lr`: dual update step size.
-- `algorithm.penalty_cap`: upper bound on the per-sample length penalty.
-- `algorithm.hit_cap`: extra penalty for responses that hit `max_response_length`.
-- `algorithm.lambda_floor`, `algorithm.lambda_ceil`: clamp range for the dual variable.
-
-### A Concrete Mental Model
-
-Suppose the target budget is 500 tokens:
-
-- a 350-token high-quality answer gets task reward and essentially no length penalty
-- a 900-token answer gets task reward, but also pays an over-budget cost
-- if the model keeps overshooting the budget across training, LACONIC increases the strength of that cost
-
-This lets the model discover concise reasoning behavior instead of relying on a hand-tuned fixed penalty.
-
-## Release Snapshot
-
-This repository is being prepared for a cleaner public release. The `LACONIC` branch is the main public branch for the project. The codebase still inherits some naming and package structure from the underlying EasyR1 / veRL framework, but the active LACONIC implementation is in the top-level training and evaluation code paths listed above.
-
-For reproducibility, use the top-level repository code rather than the nested `evaluation_r1/EasyR1/` snapshot.
-
-## Installation
-
-### Recommended
+### Installation
 
 ```bash
 git clone https://github.com/Debugger001/Length-Aware-LLM.git
@@ -161,7 +78,7 @@ pip install --upgrade pip
 pip install -e .
 ```
 
-### Dependencies and Notes
+Main dependencies:
 
 - Python `>=3.9`
 - `transformers>=4.51.0,<4.53.0`
@@ -169,21 +86,13 @@ pip install -e .
 - `flash-attn>=2.4.3`
 - `ray[default]`
 
-The exact CUDA / PyTorch / FlashAttention / vLLM combination matters. If `pip install -e .` is not sufficient on your machine, install PyTorch, FlashAttention, and vLLM first using versions compatible with your driver and CUDA runtime, then re-run:
-
-```bash
-pip install -e .
-```
-
-If you plan to export or upload checkpoints to Hugging Face, also install:
+If you plan to merge or upload checkpoints to Hugging Face, also install:
 
 ```bash
 pip install huggingface_hub
 ```
 
-## Getting Started
-
-### 1. Launch Training
+### Run Training
 
 Example: DeepScaleR-1.5B-Preview with a target budget of 1500 tokens.
 
@@ -203,7 +112,7 @@ Example: Qwen2.5-1.5B-Instruct on math.
 bash examples/qwen2_5_1_5b_math_grpo.sh
 ```
 
-These launchers override the base config in [`examples/config.yaml`](./examples/config.yaml) and set model-specific values such as:
+These launchers override the base configuration in [`examples/config.yaml`](./examples/config.yaml), including:
 
 - `worker.actor.model.model_path`
 - `algorithm.threshold`
@@ -212,9 +121,7 @@ These launchers override the base config in [`examples/config.yaml`](./examples/
 - `trainer.n_gpus_per_node`
 - `worker.rollout.n`
 
-### 2. Merge The Checkpoint Into Hugging Face Format
-
-After training, merge an FSDP actor checkpoint:
+### Merge A Checkpoint To Hugging Face Format
 
 ```bash
 python scripts/model_merger.py \
@@ -227,7 +134,7 @@ This creates:
 checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface/
 ```
 
-### 3. Evaluate The Exported Model
+### Evaluate A Merged Model
 
 Math / reasoning evaluation:
 
@@ -261,106 +168,41 @@ python evaluation_r1/eval_bfcl.py \
   --num_gpus 4
 ```
 
-## Reproducing The Main Pipeline
+## Repository Guide
 
-The minimal publication workflow is:
+The main LACONIC implementation lives in:
 
-```bash
-git checkout LACONIC
-pip install -e .
+- [`verl/trainer/ray_trainer.py`](./verl/trainer/ray_trainer.py): LACONIC reward adjustment and dual update in the RL loop.
+- [`verl/trainer/config.py`](./verl/trainer/config.py): length-control hyperparameters.
+- [`examples/config.yaml`](./examples/config.yaml): base training config.
+- [`examples/`](./examples): experiment launch scripts.
+- [`evaluation_r1/eval_llm.py`](./evaluation_r1/eval_llm.py): reasoning benchmarks.
+- [`evaluation_r1/eval_code.py`](./evaluation_r1/eval_code.py): code benchmarks.
+- [`evaluation_r1/eval_bfcl.py`](./evaluation_r1/eval_bfcl.py): BFCL helper.
+- [`scripts/model_merger.py`](./scripts/model_merger.py): FSDP checkpoint merger and optional HF upload.
 
-# train
-bash examples/deepscale_1_5b_preview_deepscale.sh
+For reproducibility, use the **top-level repository code**. The nested `evaluation_r1/EasyR1/` directory is an inherited snapshot and is not the active implementation path.
 
-# merge actor shards
-python scripts/model_merger.py \
-  --local_dir checkpoints/Length-LLM/<experiment_name>/global_step_<best_step>/actor
+## Data And Prompting
 
-# evaluate
-python evaluation_r1/eval_llm.py \
-  --model_name checkpoints/Length-LLM/<experiment_name>/global_step_<best_step>/actor/huggingface \
-  --tasks '["aime","amc","math","minerva","olympiad_bench"]' \
-  --template training \
-  --tensor_parallel_size 4 \
-  --greedy True
-```
-
-### Notes On The Current Codebase
-
-- The Python package name is still `verl`.
-- Some scripts and directory names still reference `EasyR1` or earlier experiment names.
-- There is a nested `evaluation_r1/EasyR1/` snapshot that appears to be a baseline copy rather than the active training code.
-
-## Data Format
-
-The default config expects fields such as:
+The default config expects dataset fields such as:
 
 - `problem`
 - `answer`
 - `images`
 - `videos`
 
-See [`examples/config.yaml`](./examples/config.yaml) for the active keys and prompt formatting options.
-
-Reward functions are defined in:
-
-- [`examples/reward_function/math.py`](./examples/reward_function/math.py)
-- [`examples/reward_function/r1v.py`](./examples/reward_function/r1v.py)
-- [`examples/reward_function/dapo.py`](./examples/reward_function/dapo.py)
-
-Prompt templates are defined in:
+Prompt templates:
 
 - [`examples/format_prompt/math.jinja`](./examples/format_prompt/math.jinja)
 - [`examples/format_prompt/r1v.jinja`](./examples/format_prompt/r1v.jinja)
 - [`examples/format_prompt/dapo.jinja`](./examples/format_prompt/dapo.jinja)
 
-## Exporting And Uploading A Model To Hugging Face
+Reward functions:
 
-There are two ways to upload a trained checkpoint.
-
-### Option A: Merge And Upload In One Step
-
-```bash
-python scripts/model_merger.py \
-  --local_dir checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor \
-  --hf_upload_path <hf_user_or_org>/<repo_name>
-```
-
-`model_merger.py` uses `huggingface_hub.HfApi.create_repo()` and `upload_folder()` internally.
-
-### Option B: Upload An Existing `huggingface/` Folder
-
-If the merged folder already exists:
-
-```bash
-hf auth login
-hf upload-large-folder <hf_user_or_org>/<repo_name> \
-  checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
-  --repo-type model
-```
-
-For smaller uploads, this also works:
-
-```bash
-hf upload <hf_user_or_org>/<repo_name> \
-  checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
-  . \
-  --repo-type model
-```
-
-### Suggested Model Card Fields
-
-When you publish checkpoints, include:
-
-- base model
-- training dataset
-- target token budget
-- training script
-- best checkpoint step
-- evaluation command
-- evaluation results
-- license and intended use
-- limitations and failure modes
+- [`examples/reward_function/math.py`](./examples/reward_function/math.py)
+- [`examples/reward_function/r1v.py`](./examples/reward_function/r1v.py)
+- [`examples/reward_function/dapo.py`](./examples/reward_function/dapo.py)
 
 ## Planned Model Releases
 
@@ -372,38 +214,28 @@ The first public checkpoints will likely include variants such as:
 | `LACONIC-DeepSeek-R1-Distill-Qwen-1.5B-1500` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Planned |
 | `LACONIC-Qwen2.5-1.5B-550` | `Qwen/Qwen2.5-1.5B-Instruct` | 550 | Planned |
 
-## Results
+Model checkpoints and model cards will be added here as the public release is finalized.
 
-Final benchmark tables will be added here as the public release is finalized. A good public-facing version of this section should include both performance and efficiency so readers can immediately see the tradeoff LACONIC achieves.
+## Uploading Models To Hugging Face
 
-Suggested subsections for the final table set:
+Two supported paths:
 
-- math reasoning
-- out-of-domain general reasoning
-- multilingual evaluation
-- code and function-calling evaluation
-- length reduction statistics
+### Merge And Upload In One Step
 
-### Recommended Final Presentation
+```bash
+python scripts/model_merger.py \
+  --local_dir checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor \
+  --hf_upload_path <hf_user_or_org>/<repo_name>
+```
 
-For the public release, this section will be strongest if each model gets a compact summary row with:
+### Upload An Existing `huggingface/` Folder
 
-- base model
-- target token budget
-- benchmark score
-- average output length
-- relative token reduction versus baseline
-- link to checkpoint
-
-## Figures
-
-Figures will be added here in the polished release version of the repository.
-
-Recommended assets:
-
-- method overview
-- reward + length tradeoff figure
-- response length comparison plot
+```bash
+hf auth login
+hf upload-large-folder <hf_user_or_org>/<repo_name> \
+  checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+  --repo-type model
+```
 
 ## Citation
 
@@ -418,8 +250,6 @@ Recommended assets:
   url          = {https://arxiv.org/abs/2602.14468}
 }
 ```
-
-If this repository remains a derivative of EasyR1 / veRL in the public release, it is also appropriate to acknowledge the upstream framework.
 
 ## Acknowledgments
 
