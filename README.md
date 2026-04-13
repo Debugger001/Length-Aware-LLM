@@ -14,7 +14,7 @@ This repository includes the training, evaluation, and checkpoint export code fo
 
 ## 🔗 Quick Links
 
-📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM) · 🤗 Model checkpoints: coming soon
+📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM) · 🤗 [DeepSeek-1.5B checkpoint](https://huggingface.co/lc1111/LACONIC-DeepSeek-R1-Distill-1.5B-1500) · More releases coming soon
 
 ## ✨ Key Features
 
@@ -31,7 +31,7 @@ This repository includes the training, evaluation, and checkpoint export code fo
 - [🚀 Quick Start](#quick-start)
 - [🗂️ Repository Guide](#repository-guide)
 - [🧾 Data And Prompting](#data-and-prompting)
-- [🤗 Planned Model Releases](#planned-model-releases)
+- [🤗 Model Releases](#planned-model-releases)
 - [📚 Citation](#citation)
 
 <a id="why-laconic"></a>
@@ -277,17 +277,17 @@ Reward functions:
 - [`examples/reward_function/dapo.py`](./examples/reward_function/dapo.py)
 
 <a id="planned-model-releases"></a>
-## 🤗 Planned Model Releases
+## 🤗 Model Releases
 
-The first public checkpoints are currently planned to include:
+Current and planned public checkpoints:
 
 | Model | Base Model | Budget | Status |
 | --- | --- | --- | --- |
 | `LACONIC-Qwen3-32B-3000` | `Qwen/Qwen3-32B` | 3000 | Planned |
 | `LACONIC-DeepScaleR-1.5B-2000` | `agentica-org/DeepScaleR-1.5B-Preview` | 2000 | Planned |
-| `LACONIC-DeepSeek-R1-Distill-1.5B-1500` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Planned |
+| [`LACONIC-DeepSeek-R1-Distill-1.5B-1500`](https://huggingface.co/lc1111/LACONIC-DeepSeek-R1-Distill-1.5B-1500) | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Released |
 
-Model checkpoints and model cards will be added here as the public release is finalized.
+Released checkpoints link directly to Hugging Face. Additional checkpoints and model cards will be added here as they go live.
 
 <a id="citation"></a>
 ## 📚 Citation
