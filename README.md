@@ -14,7 +14,9 @@ LACONIC adds a cost only when generations exceed a target token budget, and adap
 
 ✨ Shorter responses. ⚡ Lower latency. 🧩 Minimal overhead.
 
-LACONIC is a **plug-in trainer-side extension**: one length-penalty computation, one scalar dual update, and the usual deployment path after training.
+What makes LACONIC especially practical is that it achieves this with very little extra machinery: it fits naturally into standard RL fine-tuning pipelines and keeps deployment simple.
+
+## 🔗 Quick Links
 
 📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM) · 🤗 Model checkpoints: coming soon
 
