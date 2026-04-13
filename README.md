@@ -184,7 +184,22 @@ python evaluation_r1/eval_llm.py \
   --tasks '["aime","amc","math","minerva","olympiad_bench"]' \
   --template training \
   --tensor_parallel_size 4 \
-  --greedy True
+  --max_tokens 32768 \
+  --n_samples 16 \
+  --greedy False
+```
+
+For GPQA, MMLU, and LSAT, use the same script with a different task list:
+
+```bash
+python evaluation_r1/eval_llm.py \
+  --model_name checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+  --tasks '["gpqa","mmlu","lsat"]' \
+  --template training \
+  --tensor_parallel_size 4 \
+  --max_tokens 32768 \
+  --n_samples 16 \
+  --greedy False
 ```
 
 Code evaluation:
@@ -194,7 +209,9 @@ python evaluation_r1/eval_code.py \
   --model_name checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
   --tasks '["humaneval_plus","livecodebench","codeforces"]' \
   --tensor_parallel_size 4 \
-  --greedy True
+  --max_tokens 32768 \
+  --n_samples 16 \
+  --greedy False
 ```
 
 <a id="repository-guide"></a>
