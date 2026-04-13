@@ -135,29 +135,35 @@ pip install huggingface_hub
 Example: DeepScaleR-1.5B-Preview.
 
 ```bash
-bash examples/deepscale_1_5b_preview_deepscale.sh
+bash examples/deepscaler_1_5b_preview.sh
 ```
 
 Example: DeepSeek-R1-Distill-Qwen-1.5B.
 
 ```bash
-bash examples/deepseek_1_5b_ds.sh
+bash examples/deepseek_r1_distill_qwen_1_5b.sh
 ```
 
-Example: Qwen2.5-1.5B-Instruct on math.
+Example: Qwen3-32B.
 
 ```bash
-bash examples/qwen2_5_1_5b_math_grpo.sh
+bash examples/qwen3_32b.sh
 ```
 
-These launchers override the base configuration in [`examples/config.yaml`](./examples/config.yaml), including:
+Example: Qwen3-8B.
 
-- `worker.actor.model.model_path`
-- `algorithm.threshold`
-- `algorithm.dual_lr`
-- `algorithm.lambda_ceil`
-- `trainer.n_gpus_per_node`
-- `worker.rollout.n`
+```bash
+bash examples/qwen3_8b.sh
+```
+
+These launchers override the base configuration in [`examples/config.yaml`](./examples/config.yaml). The main LACONIC-specific hyperparameters are:
+
+- `algorithm.threshold`: the target token budget `B`
+- `algorithm.lambda_len_init`: the initial value of the dual variable `\lambda`
+- `algorithm.dual_lr`: the dual update learning rate `\eta`
+- `algorithm.lambda_ceil`: the upper cap `\Lambda` on `\lambda`
+
+Together, these control the target length and how aggressively the length penalty adapts during training. In the released-style settings highlighted here, we initialize `\lambda` with `0`; for the main released DeepSeek-1.5B and Qwen3-8B settings, we use `algorithm.dual_lr=0.002`.
 
 ### Merge A Checkpoint To Hugging Face Format
 
@@ -177,8 +183,9 @@ checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface/
 Math / reasoning evaluation:
 
 ```bash
-python evaluation_r1/eval_llm.py \
-  --model_name checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+cd evaluation_r1
+python eval_llm.py \
+  --model_name ../checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
   --tasks '["aime","amc","math","minerva","olympiad_bench"]' \
   --template training \
   --tensor_parallel_size 4 \
@@ -190,8 +197,9 @@ python evaluation_r1/eval_llm.py \
 For GPQA, MMLU, and LSAT, use the same script with a different task list:
 
 ```bash
-python evaluation_r1/eval_llm.py \
-  --model_name checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+cd evaluation_r1
+python eval_llm.py \
+  --model_name ../checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
   --tasks '["gpqa","mmlu","lsat"]' \
   --template training \
   --tensor_parallel_size 4 \
@@ -203,8 +211,9 @@ python evaluation_r1/eval_llm.py \
 Code evaluation:
 
 ```bash
-python evaluation_r1/eval_code.py \
-  --model_name checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+cd evaluation_r1
+python eval_code.py \
+  --model_name ../checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
   --tasks '["humaneval_plus","livecodebench","codeforces"]' \
   --tensor_parallel_size 4 \
   --max_tokens 32768 \
