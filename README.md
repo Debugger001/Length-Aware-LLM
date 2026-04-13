@@ -10,26 +10,28 @@ This lets models become **shorter, cheaper, and faster at inference** without ch
 
 This codebase is **adapted from [EasyR1](https://github.com/hiyouga/EasyR1)**, an RL training framework based on veRL. LACONIC should be viewed as a lightweight length-aware extension built on top of that training stack, rather than a brand new framework from scratch.
 
+✨ Shorter responses. ⚡ Lower latency. 🧩 Minimal deployment overhead.
+
 Just as importantly, LACONIC is **extremely easy to implement and deploy**:
 
-- **implementation:** add one extra cost term to the reward and update one scalar dual variable
-- **training:** no architecture change, no extra model, no new data format
-- **deployment:** use the trained model exactly as usual, with no inference-time control logic
+- **🧮 implementation:** add one length-penalty computation and one scalar dual update
+- **🏋️ training:** no new model components and no new data format
+- **🚀 deployment:** use the trained model with the usual decoding stack and no inference-time control logic
 
 ## Quick Links
 
-- [Paper](https://arxiv.org/abs/2602.14468)
-- [Code](https://github.com/Debugger001/Length-Aware-LLM)
-- [Upstream EasyR1](https://github.com/hiyouga/EasyR1)
-- Model checkpoints: coming soon
+- 📄 [Paper](https://arxiv.org/abs/2602.14468)
+- 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM)
+- 🧱 [Upstream EasyR1](https://github.com/hiyouga/EasyR1)
+- 🤗 Model checkpoints: coming soon
 
 ## Key Features
 
-- **Length-aware RL objective:** optimize task reward while charging a cost for overlong outputs
-- **Adaptive control:** automatically tune the strength of the length cost during training
-- **Easy deployment:** no architecture changes, no auxiliary model, no inference-time control logic
-- **Easy integration:** closer to a small reward modification than a new training stack
-- **Evaluation support:** includes reasoning and code evaluation utilities
+- **📏 Length-aware RL:** optimize task reward while charging a cost for overlong outputs
+- **🎛️ Adaptive control:** automatically tune the strength of the length cost during training
+- **🚀 Easy deployment:** no special model components and no inference-time control logic
+- **🔌 Easy integration:** closer to a small trainer-side extension than a new training stack
+- **🧪 Evaluation support:** includes reasoning and code evaluation utilities
 
 ## Contents
 
@@ -97,10 +99,9 @@ In practice, this is a simple feedback loop: LACONIC keeps the original task rew
 
 LACONIC plugs into a standard RL-tuning pipeline with very little extra machinery.
 
-- **No architecture changes:** the policy, reference model, and serving stack stay the same.
-- **No inference-time changes:** once training is done, decoding is unchanged.
-- **No auxiliary model:** there is no extra predictor or controller at serving time.
-- **Minimal training logic:** each update adds one length-penalty computation and one scalar dual update.
+- **No special model components:** LACONIC does not require a new head, controller, or auxiliary model.
+- **Standard deployment path:** once training is done, inference uses the usual decoding stack.
+- **Minimal trainer-side logic:** each update adds one length-penalty computation and one scalar dual update.
 - **Small configuration surface:** the main knobs are just the target budget `B` and a few scalar hyperparameters such as `dual_lr`, `penalty_cap`, and `hit_cap`.
 
 If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer to a **lightweight trainer-side extension** than to a new system.
