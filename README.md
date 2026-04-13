@@ -4,49 +4,50 @@
 [![Code](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/Debugger001/Length-Aware-LLM)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
-Official implementation of **LACONIC**, a reinforcement learning method for making LLM responses substantially shorter while preserving task performance. Instead of only rewarding task success, LACONIC also charges a length-based cost when generations become unnecessarily long, and adjusts that cost automatically over time.
+Official implementation of **LACONIC**, a length-aware reinforcement learning method for making LLM responses substantially shorter while preserving task performance.
 
-This lets models become **shorter, cheaper, and faster at inference** without changing the decoding pipeline at deployment time.
+LACONIC adds a cost only when generations exceed a target token budget, and adapts the strength of that cost online during RL training. The result is **shorter, cheaper, and faster** responses with the usual decoding stack at deployment time.
 
-This codebase is **adapted from [EasyR1](https://github.com/hiyouga/EasyR1)**, an RL training framework based on veRL. LACONIC should be viewed as a lightweight length-aware extension built on top of that training stack, rather than a brand new framework from scratch.
+| 🎯 Core idea | 📉 Practical effect | 🧩 Integration |
+| --- | --- | --- |
+| Penalize only excess length during RL training | Reduce response length without sacrificing task performance | Plug-in trainer-side extension with standard deployment |
 
-✨ Shorter responses. ⚡ Lower latency. 🧩 Minimal deployment overhead.
+✨ Shorter responses. ⚡ Lower latency. 🧩 Minimal overhead.
 
-Just as importantly, LACONIC is **extremely easy to implement and deploy**:
+LACONIC is also **extremely easy to implement and deploy**:
 
 - **🧮 implementation:** add one length-penalty computation and one scalar dual update
 - **🏋️ training:** no new model components and no new data format
 - **🚀 deployment:** use the trained model with the usual decoding stack and no inference-time control logic
 
-## Quick Links
+## 🔗 Quick Links
 
 - 📄 [Paper](https://arxiv.org/abs/2602.14468)
 - 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM)
-- 🧱 [Upstream EasyR1](https://github.com/hiyouga/EasyR1)
 - 🤗 Model checkpoints: coming soon
 
-## Key Features
+## ✨ Key Features
 
 - **📏 Length-aware RL:** optimize task reward while charging a cost for overlong outputs
 - **🎛️ Adaptive control:** automatically tune the strength of the length cost during training
 - **🚀 Easy deployment:** no special model components and no inference-time control logic
-- **🔌 Easy integration:** closer to a small trainer-side extension than a new training stack
+- **🔌 Easy integration:** closer to a plug-in trainer-side extension than a new training stack
 - **🧪 Evaluation support:** includes reasoning and code evaluation utilities
 
-## Contents
+## 🧭 Contents
 
-- [Why LACONIC](#why-laconic)
-- [Headline Results](#headline-results)
-- [How LACONIC Works](#how-laconic-works)
-- [LACONIC Is Easy To Implement And Deploy](#laconic-is-easy-to-implement-and-deploy)
-- [Quick Start](#quick-start)
-- [Repository Guide](#repository-guide)
-- [Data And Prompting](#data-and-prompting)
-- [Planned Model Releases](#planned-model-releases)
-- [Uploading Models To Hugging Face](#uploading-models-to-hugging-face)
-- [Citation](#citation)
+- [❓ Why LACONIC](#why-laconic)
+- [📈 Headline Results](#headline-results)
+- [⚙️ How LACONIC Works](#how-laconic-works)
+- [🧩 LACONIC Is Easy To Implement And Deploy](#laconic-is-easy-to-implement-and-deploy)
+- [🚀 Quick Start](#quick-start)
+- [🗂️ Repository Guide](#repository-guide)
+- [🧾 Data And Prompting](#data-and-prompting)
+- [🤖 Planned Model Releases](#planned-model-releases)
+- [🤗 Uploading Models To Hugging Face](#uploading-models-to-hugging-face)
+- [📚 Citation](#citation)
 
-## Why LACONIC
+## ❓ Why LACONIC
 
 Reinforcement learning often improves reasoning performance, but it also tends to make responses much longer. Those extra tokens increase latency and serving cost.
 
@@ -59,7 +60,7 @@ The practical benefits are immediate:
 - controlling length during training is simpler than relying on brittle decoding-time heuristics
 - the method fits naturally into standard RL fine-tuning pipelines
 
-## Headline Results
+## 📈 Headline Results
 
 | Setting | Main Outcome |
 | --- | --- |
@@ -69,7 +70,7 @@ The practical benefits are immediate:
 
 Paper link: [arXiv:2602.14468](https://arxiv.org/abs/2602.14468)
 
-## How LACONIC Works
+## ⚙️ How LACONIC Works
 
 LACONIC adds a length-aware cost during RL training and adapts its strength online. For a response of length $L$ and a target budget $B$, it computes:
 
@@ -95,7 +96,7 @@ In practice, this is a simple feedback loop: LACONIC keeps the original task rew
 </p>
 <p align="center"><em>Full training overview from the paper. At a high level, LACONIC combines task reward with a length-based cost and updates a single dual variable to keep average response length near the target budget.</em></p>
 
-## LACONIC Is Easy To Implement And Deploy
+## 🧩 LACONIC Is Easy To Implement And Deploy
 
 LACONIC plugs into a standard RL-tuning pipeline with very little extra machinery.
 
@@ -104,9 +105,9 @@ LACONIC plugs into a standard RL-tuning pipeline with very little extra machiner
 - **Minimal trainer-side logic:** each update adds one length-penalty computation and one scalar dual update.
 - **Small configuration surface:** the main knobs are just the target budget `B` and a few scalar hyperparameters such as `dual_lr`, `penalty_cap`, and `hit_cap`.
 
-If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer to a **lightweight trainer-side extension** than to a new system.
+If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer to a **plug-in trainer-side extension** than to a new system.
 
-## Quick Start
+## 🚀 Quick Start
 
 ### Installation
 
@@ -201,7 +202,7 @@ python evaluation_r1/eval_code.py \
   --greedy True
 ```
 
-## Repository Guide
+## 🗂️ Repository Guide
 
 The main LACONIC implementation lives in:
 
@@ -213,13 +214,11 @@ The main LACONIC implementation lives in:
 - [`evaluation_r1/eval_code.py`](./evaluation_r1/eval_code.py): code benchmarks.
 - [`scripts/model_merger.py`](./scripts/model_merger.py): FSDP checkpoint merger and optional HF upload.
 
-Upstream base framework:
-
-- [EasyR1](https://github.com/hiyouga/EasyR1): the training framework this repository is adapted from
-
 For reproducibility, use the **top-level repository code**. The nested `evaluation_r1/EasyR1/` directory is an inherited snapshot and is not the active implementation path.
 
-## Data And Prompting
+This repository is adapted from [EasyR1](https://github.com/hiyouga/EasyR1), an RL training framework based on veRL.
+
+## 🧾 Data And Prompting
 
 For the main text-only reasoning runs in this branch, the dataset uses `problem` as the prompt field and `answer` as the supervision target. The codebase also supports `images` and `videos` for multimodal settings.
 
@@ -257,7 +256,7 @@ Reward functions:
 - [`examples/reward_function/r1v.py`](./examples/reward_function/r1v.py)
 - [`examples/reward_function/dapo.py`](./examples/reward_function/dapo.py)
 
-## Planned Model Releases
+## 🤖 Planned Model Releases
 
 The first public checkpoints are currently planned to include:
 
@@ -269,7 +268,7 @@ The first public checkpoints are currently planned to include:
 
 Model checkpoints and model cards will be added here as the public release is finalized.
 
-## Uploading Models To Hugging Face
+## 🤗 Uploading Models To Hugging Face
 
 Two supported paths:
 
@@ -290,7 +289,7 @@ hf upload-large-folder <hf_user_or_org>/<repo_name> \
   --repo-type model
 ```
 
-## Citation
+## 📚 Citation
 
 ```bibtex
 @misc{liu2026laconic,
@@ -304,6 +303,6 @@ hf upload-large-folder <hf_user_or_org>/<repo_name> \
 }
 ```
 
-## Acknowledgments
+## 🙏 Acknowledgments
 
 This project is adapted from [EasyR1](https://github.com/hiyouga/EasyR1), which itself builds on veRL. We thank the EasyR1 and veRL authors for releasing the training framework that made this work possible.
