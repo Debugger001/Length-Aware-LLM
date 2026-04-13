@@ -14,7 +14,7 @@ This repository includes the training, evaluation, and checkpoint export code fo
 
 ## 🔗 Quick Links
 
-📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/LACONIC-LLM) · 🤗 [Hugging Face org](https://huggingface.co/laconic-llm) · More releases coming soon
+📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/LACONIC-LLM) · 🤗 [Released checkpoints](https://huggingface.co/laconic-llm)
 
 ## ✨ Key Features
 
@@ -279,15 +279,15 @@ Reward functions:
 <a id="planned-model-releases"></a>
 ## 🤗 Model Releases
 
-Current and planned public checkpoints:
+Current released checkpoints:
 
 | Model | Base Model | Budget | Status |
 | --- | --- | --- | --- |
-| `LACONIC-Qwen3-32B-3000` | `Qwen/Qwen3-32B` | 3000 | Planned |
-| `LACONIC-DeepScaleR-1.5B-2000` | `agentica-org/DeepScaleR-1.5B-Preview` | 2000 | Planned |
-| [`LACONIC-DeepSeek-R1-Distill-1.5B-1500`](https://huggingface.co/lc1111/LACONIC-DeepSeek-R1-Distill-1.5B-1500) | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Released |
+| [`LACONIC-Qwen3-32B-3000`](https://huggingface.co/laconic-llm/LACONIC-Qwen3-32B-3000) | `Qwen/Qwen3-32B` | 3000 | Released |
+| [`LACONIC-DeepScaleR-1.5B-2000`](https://huggingface.co/laconic-llm/LACONIC-Deepscaler-1.5B-2000) | `agentica-org/DeepScaleR-1.5B-Preview` | 2000 | Released |
+| [`LACONIC-DeepSeek-R1-Distill-1.5B-1500`](https://huggingface.co/laconic-llm/LACONIC-DeepSeek-R1-Distill-1.5B-1500) | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Released |
 
-Released checkpoints link directly to Hugging Face. Additional checkpoints and model cards will be added here as they go live.
+Released checkpoints and model cards are hosted under the [`laconic-llm`](https://huggingface.co/laconic-llm) Hugging Face organization.
 
 <a id="citation"></a>
 ## 📚 Citation
