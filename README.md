@@ -16,6 +16,34 @@ Just as importantly, LACONIC is **extremely easy to implement and deploy**:
 - **training:** no architecture change, no extra model, no new data format
 - **deployment:** use the trained model exactly as usual, with no inference-time control logic
 
+## Quick Links
+
+- [Paper](https://arxiv.org/abs/2602.14468)
+- [Code](https://github.com/Debugger001/Length-Aware-LLM)
+- [Upstream EasyR1](https://github.com/hiyouga/EasyR1)
+- Model checkpoints: coming soon
+
+## Key Features
+
+- **Length-aware RL objective:** optimize task reward while charging a cost for overlong outputs
+- **Adaptive control:** automatically tune the strength of the length cost during training
+- **Easy deployment:** no architecture changes, no auxiliary model, no inference-time control logic
+- **Easy integration:** closer to a small reward modification than a new training stack
+- **Practical evaluation support:** includes reasoning, code, and BFCL evaluation utilities
+
+## Contents
+
+- [Why LACONIC](#why-laconic)
+- [Headline Results](#headline-results)
+- [How LACONIC Works](#how-laconic-works)
+- [LACONIC Is Easy To Implement And Deploy](#laconic-is-easy-to-implement-and-deploy)
+- [Quick Start](#quick-start)
+- [Repository Guide](#repository-guide)
+- [Data And Prompting](#data-and-prompting)
+- [Planned Model Releases](#planned-model-releases)
+- [Uploading Models To Hugging Face](#uploading-models-to-hugging-face)
+- [Citation](#citation)
+
 ## Why LACONIC
 
 Reinforcement learning can improve reasoning performance, but it often makes models much more verbose. That extra verbosity increases latency and serving cost, and it is hard to control reliably with fixed heuristic penalties.
