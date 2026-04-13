@@ -8,6 +8,12 @@ Official implementation of **LACONIC**, a reinforcement learning method that tea
 
 This lets models become **shorter, cheaper, and faster at inference** without changing the decoding pipeline at deployment time.
 
+Just as importantly, LACONIC is **extremely easy to implement and deploy**:
+
+- **implementation:** add one extra cost term to the reward and update one scalar dual variable
+- **training:** no architecture change, no extra model, no new data format
+- **deployment:** use the trained model exactly as usual, with no inference-time control logic
+
 ## Why This Is Interesting
 
 Reinforcement learning can improve reasoning performance, but it often makes models much more verbose. That extra verbosity increases latency and serving cost, and it is hard to control reliably with fixed heuristic penalties.
@@ -49,6 +55,12 @@ $$
 \bar L < B \Rightarrow \lambda \text{ decreases}
 $$
 
+That is the whole method:
+
+1. compute the usual task reward
+2. subtract an extra cost only when the output is too long
+3. adjust one scalar, $\lambda$, so the average response length stays near the target budget
+
 where:
 
 - $r_{\text{task}}$ is the usual task reward
@@ -65,6 +77,18 @@ The interpretation is simple:
 - if the model is already short enough, LACONIC relaxes $\lambda$
 
 So LACONIC is just **standard RL plus an adaptive cost on overlong outputs**.
+
+## Why It Is Easy To Implement And Deploy
+
+LACONIC is intentionally lightweight.
+
+- **No model changes:** the policy architecture stays the same.
+- **No inference changes:** once training is done, decoding is unchanged.
+- **No auxiliary model:** there is no extra predictor or controller at serving time.
+- **Minimal training change:** conceptually, it is one extra reward term and one scalar update rule.
+- **Small configuration surface:** the main knobs are just the target budget `B` and a few scalar hyperparameters such as `dual_lr`, `penalty_cap`, and `hit_cap`.
+
+If you already have an RL fine-tuning pipeline, LACONIC is closer to a **small reward modification** than to a new training stack.
 
 <p align="center">
   <img src="./assets/laconic_overview.png" alt="LACONIC overview" width="88%">
