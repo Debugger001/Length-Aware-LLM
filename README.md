@@ -14,24 +14,16 @@ LACONIC adds a cost only when generations exceed a target token budget, and adap
 
 ✨ Shorter responses. ⚡ Lower latency. 🧩 Minimal overhead.
 
-LACONIC is also **extremely easy to implement and deploy**:
+LACONIC is a **plug-in trainer-side extension**: one length-penalty computation, one scalar dual update, and the usual deployment path after training.
 
-- **🧮 implementation:** add one length-penalty computation and one scalar dual update
-- **🏋️ training:** no new model components and no new data format
-- **🚀 deployment:** use the trained model with the usual decoding stack and no inference-time control logic
-
-## 🔗 Quick Links
-
-- 📄 [Paper](https://arxiv.org/abs/2602.14468)
-- 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM)
-- 🤗 Model checkpoints: coming soon
+📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM) · 🤗 Model checkpoints: coming soon
 
 ## ✨ Key Features
 
-- **📏 Length-aware RL:** optimize task reward while charging a cost for overlong outputs
-- **🎛️ Adaptive control:** automatically tune the strength of the length cost during training
-- **🚀 Easy deployment:** no special model components and no inference-time control logic
-- **🔌 Easy integration:** closer to a plug-in trainer-side extension than a new training stack
+- **📏 Length-aware cost:** penalize only responses that exceed the target token budget
+- **🎛️ Adaptive control:** automatically tune the penalty strength during training
+- **🧮 Lightweight implementation:** add one length-penalty computation and one scalar dual update
+- **🚀 Standard deployment:** use the trained model with the usual decoding stack and no inference-time control logic
 - **🧪 Evaluation support:** includes reasoning and code evaluation utilities
 
 ## 🧭 Contents
