@@ -8,6 +8,8 @@ Official implementation of **LACONIC**, a reinforcement learning method that tea
 
 This lets models become **shorter, cheaper, and faster at inference** without changing the decoding pipeline at deployment time.
 
+This codebase is **adapted from [EasyR1](https://github.com/hiyouga/EasyR1)**, an RL training framework based on veRL. LACONIC should be viewed as a lightweight length-aware extension built on top of that training stack, rather than a brand new framework from scratch.
+
 Just as importantly, LACONIC is **extremely easy to implement and deploy**:
 
 - **implementation:** add one extra cost term to the reward and update one scalar dual variable
@@ -221,6 +223,10 @@ The main LACONIC implementation lives in:
 - [`evaluation_r1/eval_bfcl.py`](./evaluation_r1/eval_bfcl.py): BFCL helper.
 - [`scripts/model_merger.py`](./scripts/model_merger.py): FSDP checkpoint merger and optional HF upload.
 
+Upstream base framework:
+
+- [EasyR1](https://github.com/hiyouga/EasyR1): the training framework this repository is adapted from
+
 For reproducibility, use the **top-level repository code**. The nested `evaluation_r1/EasyR1/` directory is an inherited snapshot and is not the active implementation path.
 
 ## Data And Prompting
@@ -293,4 +299,4 @@ hf upload-large-folder <hf_user_or_org>/<repo_name> \
 
 ## Acknowledgments
 
-This project builds on EasyR1 and veRL. We thank the upstream authors for releasing the training framework that made this work possible.
+This project is adapted from [EasyR1](https://github.com/hiyouga/EasyR1), which itself builds on veRL. We thank the EasyR1 and veRL authors for releasing the training framework that made this work possible.
