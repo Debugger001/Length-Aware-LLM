@@ -6,15 +6,11 @@
 
 Official implementation of **LACONIC**, a length-aware reinforcement learning method for making LLM responses substantially shorter while preserving task performance.
 
-LACONIC adds a cost only when generations exceed a target token budget, and adapts the strength of that cost online during RL training. The result is **shorter, cheaper, and faster** responses with the usual decoding stack at deployment time.
+This repository includes the training, evaluation, and checkpoint export code for reproducing and releasing **LACONIC**.
 
-| 🎯 Core idea | 📉 Practical effect | 🧩 Integration |
-| --- | --- | --- |
-| Penalize only excess length during RL training | Reduce response length without sacrificing task performance | Plug-in trainer-side extension with standard deployment |
-
-✨ Shorter responses. ⚡ Lower latency. 🧩 Minimal overhead.
-
-What makes LACONIC especially practical is that it achieves this with very little extra machinery: it fits naturally into standard RL fine-tuning pipelines and keeps deployment simple.
+- **What LACONIC is:** a length-aware RL method that enforces a target token budget during training by combining task reward with an adaptive length-based cost.
+- **What LACONIC does:** it makes responses substantially shorter while preserving task performance, with the usual decoding stack at deployment time.
+- **How well it works:** across mathematical reasoning models and datasets, LACONIC preserves or improves `pass@1` while reducing output length by **over 50%**; it also maintains out-of-domain performance on general knowledge and multilingual benchmarks with **44% fewer tokens**.
 
 ## 🔗 Quick Links
 
@@ -22,11 +18,11 @@ What makes LACONIC especially practical is that it achieves this with very littl
 
 ## ✨ Key Features
 
-- **📏 Length-aware cost:** penalize only responses that exceed the target token budget
-- **🎛️ Adaptive control:** automatically tune the penalty strength during training
-- **🧮 Lightweight implementation:** add one length-penalty computation and one scalar dual update
-- **🚀 Standard deployment:** use the trained model with the usual decoding stack and no inference-time control logic
-- **🧪 Evaluation support:** includes reasoning and code evaluation utilities
+- **🧠 LACONIC training logic:** length-aware RL integrated into the trainer
+- **🧪 Evaluation scripts:** reasoning and code evaluation utilities
+- **🧾 Prompt and reward templates:** runnable examples for the released settings
+- **🤗 Checkpoint export tools:** merge FSDP checkpoints into Hugging Face format
+- **🚀 Standard deployment path:** no inference-time control logic required
 
 ## 🧭 Contents
 
