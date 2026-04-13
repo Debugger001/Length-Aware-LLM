@@ -6,11 +6,11 @@
 
 Official implementation of **LACONIC**, a length-aware reinforcement learning method for making LLM responses substantially shorter while preserving task performance.
 
-This repository includes the training, evaluation, and checkpoint export code for reproducing and releasing **LACONIC**.
+This repository includes the training, evaluation, and checkpoint export code for **LACONIC**. It is meant both to support reproduction of the paper and to serve as a practical reference for anyone who wants to use LACONIC-style training to control response length in their own RL pipelines.
 
-- **What LACONIC is:** a length-aware RL method that enforces a target token budget during training by combining task reward with an adaptive length-based cost.
-- **What LACONIC does:** it makes responses substantially shorter while preserving task performance, with the usual decoding stack at deployment time.
-- **How well it works:** across mathematical reasoning models and datasets, LACONIC preserves or improves `pass@1` while reducing output length by **over 50%**; it also maintains out-of-domain performance on general knowledge and multilingual benchmarks with **44% fewer tokens**.
+- **Method:** LACONIC enforces a target token budget during training by combining task reward with an adaptive length-based cost.
+- **Effect:** it makes responses substantially shorter while preserving task performance, with the usual decoding stack at deployment time.
+- **Headline result:** on mathematical reasoning, LACONIC preserves or improves `pass@1` while reducing output length by **over 50%**; on general knowledge and multilingual benchmarks, it maintains out-of-domain performance with **44% fewer tokens**.
 
 ## 🔗 Quick Links
 
