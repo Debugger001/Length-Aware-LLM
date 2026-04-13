@@ -37,6 +37,7 @@ This repository includes the training, evaluation, and checkpoint export code fo
 - [🤗 Uploading Models To Hugging Face](#uploading-models-to-hugging-face)
 - [📚 Citation](#citation)
 
+<a id="why-laconic"></a>
 ## ❓ Why LACONIC
 
 Reinforcement learning often improves reasoning performance, but it also tends to make responses much longer. Those extra tokens increase latency and serving cost.
@@ -50,6 +51,7 @@ The practical benefits are immediate:
 - controlling length during training is simpler than relying on brittle decoding-time heuristics
 - the method fits naturally into standard RL fine-tuning pipelines
 
+<a id="headline-results"></a>
 ## 📈 Headline Results
 
 | Setting | Main Outcome |
@@ -60,6 +62,7 @@ The practical benefits are immediate:
 
 Paper link: [arXiv:2602.14468](https://arxiv.org/abs/2602.14468)
 
+<a id="how-laconic-works"></a>
 ## ⚙️ How LACONIC Works
 
 LACONIC adds a length-aware cost during RL training and adapts its strength online. For a response of length $L$ and a target budget $B$, it computes:
@@ -86,6 +89,7 @@ In practice, this is a simple feedback loop: LACONIC keeps the original task rew
 </p>
 <p align="center"><em>Full training overview from the paper. At a high level, LACONIC combines task reward with a length-based cost and updates a single dual variable to keep average response length near the target budget.</em></p>
 
+<a id="laconic-is-easy-to-implement-and-deploy"></a>
 ## 🧩 LACONIC Is Easy To Implement And Deploy
 
 LACONIC plugs into a standard RL-tuning pipeline with very little extra machinery.
@@ -97,6 +101,7 @@ LACONIC plugs into a standard RL-tuning pipeline with very little extra machiner
 
 If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer to a **plug-in trainer-side extension** than to a new system.
 
+<a id="quick-start"></a>
 ## 🚀 Quick Start
 
 ### Installation
@@ -192,6 +197,7 @@ python evaluation_r1/eval_code.py \
   --greedy True
 ```
 
+<a id="repository-guide"></a>
 ## 🗂️ Repository Guide
 
 The main LACONIC implementation lives in:
@@ -208,6 +214,7 @@ For reproducibility, use the **top-level repository code**. The nested `evaluati
 
 This repository is adapted from [EasyR1](https://github.com/hiyouga/EasyR1), an RL training framework based on veRL.
 
+<a id="data-and-prompting"></a>
 ## 🧾 Data And Prompting
 
 For the main text-only reasoning runs in this branch, the dataset uses `problem` as the prompt field and `answer` as the supervision target. The codebase also supports `images` and `videos` for multimodal settings.
@@ -246,6 +253,7 @@ Reward functions:
 - [`examples/reward_function/r1v.py`](./examples/reward_function/r1v.py)
 - [`examples/reward_function/dapo.py`](./examples/reward_function/dapo.py)
 
+<a id="planned-model-releases"></a>
 ## 🤖 Planned Model Releases
 
 The first public checkpoints are currently planned to include:
@@ -258,6 +266,7 @@ The first public checkpoints are currently planned to include:
 
 Model checkpoints and model cards will be added here as the public release is finalized.
 
+<a id="uploading-models-to-hugging-face"></a>
 ## 🤗 Uploading Models To Hugging Face
 
 Two supported paths:
@@ -279,6 +288,7 @@ hf upload-large-folder <hf_user_or_org>/<repo_name> \
   --repo-type model
 ```
 
+<a id="citation"></a>
 ## 📚 Citation
 
 ```bibtex
