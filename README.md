@@ -16,7 +16,7 @@ Just as importantly, LACONIC is **extremely easy to implement and deploy**:
 - **training:** no architecture change, no extra model, no new data format
 - **deployment:** use the trained model exactly as usual, with no inference-time control logic
 
-## Why This Is Interesting
+## Why LACONIC
 
 Reinforcement learning can improve reasoning performance, but it often makes models much more verbose. That extra verbosity increases latency and serving cost, and it is hard to control reliably with fixed heuristic penalties.
 
@@ -27,6 +27,13 @@ LACONIC addresses that problem directly during RL training:
 - the penalty strength is adjusted adaptively instead of being fixed by hand
 
 In one sentence: **LACONIC makes unnecessary output tokens expensive during RL training.**
+
+This matters because:
+
+- shorter outputs reduce inference latency
+- shorter outputs reduce serving cost
+- training-time length control is easier to deploy than brittle decoding-time heuristics
+- the method integrates naturally into standard RL fine-tuning workflows
 
 ## Headline Results
 
@@ -95,13 +102,6 @@ LACONIC is intentionally lightweight.
 - **Small configuration surface:** the main knobs are just the target budget `B` and a few scalar hyperparameters such as `dual_lr`, `penalty_cap`, and `hit_cap`.
 
 If you already have an RL fine-tuning pipeline, LACONIC is closer to a **small reward modification** than to a new training stack.
-
-## Why It Matters
-
-- Shorter outputs reduce inference latency.
-- Shorter outputs reduce serving cost.
-- Training-time length control is easier to deploy than brittle decoding-time heuristics.
-- The method integrates naturally into standard RL fine-tuning workflows.
 
 ## Quick Start
 
