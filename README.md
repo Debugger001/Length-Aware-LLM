@@ -281,11 +281,11 @@ Reward functions:
 
 Current released checkpoints:
 
-| Model | Base Model | Budget | Status |
+| Model | Base Model | Budget |
 | --- | --- | --- | --- |
-| [`LACONIC-Qwen3-32B-3000`](https://huggingface.co/laconic-llm/LACONIC-Qwen3-32B-3000) | `Qwen/Qwen3-32B` | 3000 | Released |
-| [`LACONIC-DeepScaleR-1.5B-2000`](https://huggingface.co/laconic-llm/LACONIC-Deepscaler-1.5B-2000) | `agentica-org/DeepScaleR-1.5B-Preview` | 2000 | Released |
-| [`LACONIC-DeepSeek-R1-Distill-1.5B-1500`](https://huggingface.co/laconic-llm/LACONIC-DeepSeek-R1-Distill-1.5B-1500) | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Released |
+| [`LACONIC-Qwen3-32B-3000`](https://huggingface.co/laconic-llm/LACONIC-Qwen3-32B-3000) | `Qwen/Qwen3-32B` | 3000 |
+| [`LACONIC-DeepScaleR-1.5B-2000`](https://huggingface.co/laconic-llm/LACONIC-Deepscaler-1.5B-2000) | `agentica-org/DeepScaleR-1.5B-Preview` | 2000 |
+| [`LACONIC-DeepSeek-R1-Distill-1.5B-1500`](https://huggingface.co/laconic-llm/LACONIC-DeepSeek-R1-Distill-1.5B-1500) | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 |
 
 Released checkpoints and model cards are hosted under the [`laconic-llm`](https://huggingface.co/laconic-llm) Hugging Face organization.
 
