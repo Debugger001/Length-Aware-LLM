@@ -31,8 +31,7 @@ This repository includes the training, evaluation, and checkpoint export code fo
 - [🚀 Quick Start](#quick-start)
 - [🗂️ Repository Guide](#repository-guide)
 - [🧾 Data And Prompting](#data-and-prompting)
-- [🤖 Planned Model Releases](#planned-model-releases)
-- [🤗 Uploading Models To Hugging Face](#uploading-models-to-hugging-face)
+- [🤗 Planned Model Releases](#planned-model-releases)
 - [📚 Citation](#citation)
 
 <a id="why-laconic"></a>
@@ -278,7 +277,7 @@ Reward functions:
 - [`examples/reward_function/dapo.py`](./examples/reward_function/dapo.py)
 
 <a id="planned-model-releases"></a>
-## 🤖 Planned Model Releases
+## 🤗 Planned Model Releases
 
 The first public checkpoints are currently planned to include:
 
@@ -289,28 +288,6 @@ The first public checkpoints are currently planned to include:
 | `LACONIC-DeepSeek-R1-Distill-1.5B-1500` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Planned |
 
 Model checkpoints and model cards will be added here as the public release is finalized.
-
-<a id="uploading-models-to-hugging-face"></a>
-## 🤗 Uploading Models To Hugging Face
-
-Two supported paths:
-
-### Merge And Upload In One Step
-
-```bash
-python scripts/model_merger.py \
-  --local_dir checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor \
-  --hf_upload_path <hf_user_or_org>/<repo_name>
-```
-
-### Upload An Existing `huggingface/` Folder
-
-```bash
-hf auth login
-hf upload-large-folder <hf_user_or_org>/<repo_name> \
-  checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
-  --repo-type model
-```
 
 <a id="citation"></a>
 ## 📚 Citation
