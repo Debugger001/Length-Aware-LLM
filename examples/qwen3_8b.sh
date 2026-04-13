@@ -32,4 +32,4 @@ python3 -m verl.trainer.main \
     algorithm.hit_cap=0.1 \
     algorithm.threshold=1200 \
     data.seed=20250521 \
-    worker.rollout.n=3
+    worker.rollout.n=6

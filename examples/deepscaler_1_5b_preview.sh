@@ -2,14 +2,10 @@
 
 set -x
 
-source /home/lliu/miniconda3/etc/profile.d/conda.sh
-conda activate LACONIC
-
 export PYTHONUNBUFFERED=1
 export CUDA_VISIBLE_DEVICES=0,1,2,3,4,5,6,7
 
 MODEL_PATH=agentica-org/DeepScaleR-1.5B-Preview  # replace it with your local file path
-# CKPT_PATH=/data/cliu/Length-Aware-LLM/checkpoints/Length-LLM/deepscaler_1.5b_deepscaler_1500_nf_0905/global_step_300
 PROJECT_NAME=Length-LLM
 
 ray stop --force
@@ -36,4 +32,4 @@ python3 -m verl.trainer.main \
     algorithm.hit_cap=0.1 \
     algorithm.threshold=1500 \
     data.seed=20250521 \
-    worker.rollout.n=3
+    worker.rollout.n=6
