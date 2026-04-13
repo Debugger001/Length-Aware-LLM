@@ -2,9 +2,6 @@
 
 set -x
 
-source /home/lliu/miniconda3/etc/profile.d/conda.sh
-conda activate LACONIC
-
 export PYTHONUNBUFFERED=1
 
 MODEL_PATH=Qwen/Qwen3-32B  # replace it with your local file path
@@ -33,4 +30,4 @@ python3 -m verl.trainer.main \
     algorithm.hit_cap=0.1 \
     algorithm.threshold=2500 \
     data.seed=20250521 \
-    worker.rollout.n=7
+    worker.rollout.n=6
