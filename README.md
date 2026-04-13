@@ -1,223 +1,309 @@
-# EasyR1: An Efficient, Scalable, Multi-Modality RL Training Framework
+# LACONIC: Length-Aware Constrained Reinforcement Learning for LLMs
 
-[![GitHub Repo stars](https://img.shields.io/github/stars/hiyouga/EasyR1)](https://github.com/hiyouga/EasyR1/stargazers)
-[![Twitter](https://img.shields.io/twitter/follow/llamafactory_ai)](https://twitter.com/llamafactory_ai)
+[![Paper](https://img.shields.io/badge/arXiv-2602.14468-b31b1b.svg)](https://arxiv.org/abs/2602.14468)
+[![Code](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/Debugger001/Length-Aware-LLM)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
-### Used by [Amazon Web Services](https://aws.amazon.com/cn/blogs/china/building-llm-model-hub-based-on-llamafactory-and-easyr1/)
+Official implementation of **LACONIC**, a length-aware reinforcement learning method for making LLM responses substantially shorter while preserving task performance.
 
-This project is a clean fork of the original [veRL](https://github.com/volcengine/verl) project to support vision language models, we thank all the authors for providing such a high-performance RL training framework.
+This repository includes the training, evaluation, and checkpoint export code for **LACONIC**. It is meant both to support reproduction of the paper and to serve as a practical reference for anyone who wants to use LACONIC-style training to control response length in their own RL pipelines.
 
-EasyR1 is efficient and scalable due to the design of **[HybirdEngine](https://arxiv.org/abs/2409.19256)** and the latest release of **[vLLM](https://github.com/vllm-project/vllm)**'s SPMD mode.
+- **Method:** LACONIC enforces a target token budget during training by combining task reward with an adaptive length-based cost.
+- **Effect:** it makes responses substantially shorter while preserving task performance, with the usual decoding stack at deployment time.
+- **Headline result:** on mathematical reasoning, LACONIC preserves or improves `pass@1` while reducing output length by **over 50%**; on general knowledge and multilingual benchmarks, it maintains out-of-domain performance with **44% fewer tokens**.
 
-## Features
+## 🔗 Quick Links
 
-- Supported models
-  - Llama3/Qwen2/Qwen2.5/Qwen3 language models
-  - Qwen2/Qwen2.5-VL vision language models
-  - DeepSeek-R1 distill models
+📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM) · 🤗 [DeepSeek-1.5B checkpoint](https://huggingface.co/lc1111/LACONIC-DeepSeek-R1-Distill-1.5B-1500) · More releases coming soon
 
-- Supported algorithms
-  - GRPO
-  - DAPO
-  - Reinforce++
-  - ReMax
-  - RLOO
+## ✨ Key Features
 
-- Supported datasets
-  - Any text, vision-text dataset in a [specific format](#custom-dataset)
+- **🧠 Adaptive length control:** LACONIC uses a budget-aware penalty that is adjusted online during RL training.
+- **📉 Large token savings:** it can substantially reduce response length while preserving task performance.
+- **🚀 Standard deployment:** the trained model uses the usual decoding stack, with no inference-time control logic required.
 
-- Supported tricks
-  - Padding-free training
-  - Resuming from checkpoint
-  - Wandb & SwanLab & Mlflow & Tensorboard tracking
+## 🧭 Contents
 
-## Requirements
+- [❓ Why LACONIC](#why-laconic)
+- [📈 Headline Results](#headline-results)
+- [⚙️ How LACONIC Works](#how-laconic-works)
+- [🧩 LACONIC Is Easy To Implement And Deploy](#laconic-is-easy-to-implement-and-deploy)
+- [🚀 Quick Start](#quick-start)
+- [🗂️ Repository Guide](#repository-guide)
+- [🧾 Data And Prompting](#data-and-prompting)
+- [🤗 Model Releases](#planned-model-releases)
+- [📚 Citation](#citation)
 
-### Software Requirements
+<a id="why-laconic"></a>
+## ❓ Why LACONIC
 
-- Python 3.9+
-- transformers>=4.51.0
-- flash-attn>=2.4.3
-- vllm>=0.8.3
+Reinforcement learning often improves reasoning performance, but it also tends to make responses much longer. Those extra tokens increase latency and serving cost.
 
-We provide a [Dockerfile](./Dockerfile) to easily build environments.
+LACONIC addresses that tradeoff during RL training by keeping the usual task reward while adding an adaptive cost for overlong outputs. In practice, **LACONIC significantly reduces response length while preserving task performance.**
 
-We recommend using the [pre-built docker image](https://hub.docker.com/r/hiyouga/verl) in EasyR1.
+The practical benefits are immediate:
 
-```bash
-docker pull hiyouga/verl:ngc-th2.7.0-cu12.6-vllm0.9.1
-```
+- shorter outputs mean lower inference latency
+- shorter outputs mean lower serving cost
+- controlling length during training is simpler than relying on brittle decoding-time heuristics
+- the method fits naturally into standard RL fine-tuning pipelines
 
-### Hardware Requirements
+<a id="headline-results"></a>
+## 📈 Headline Results
 
-\* *estimated*
+| Setting | Main Outcome |
+| --- | --- |
+| Mathematical reasoning | Preserves or improves `pass@1` while reducing output length by **over 50%** |
+| General knowledge + multilingual | Maintains out-of-domain performance with **44% fewer tokens** |
+| Deployment | Requires **no inference-time changes** and adds minimal serving overhead |
 
-| Method                   | Bits |  1.5B  |   3B   |   7B   |   32B   |   72B   |
-| ------------------------ | ---- | ------ | ------ | ------ | ------- | ------- |
-| GRPO Full Fine-Tuning    |  AMP | 2*24GB | 4*40GB | 8*40GB | 16*80GB | 32*80GB |
-| GRPO Full Fine-Tuning    | BF16 | 1*24GB | 1*40GB | 4*40GB |  8*80GB | 16*80GB |
+Paper link: [arXiv:2602.14468](https://arxiv.org/abs/2602.14468)
 
-> [!NOTE]
-> Use `worker.actor.fsdp.torch_dtype=bf16` and `worker.actor.optim.strategy=adamw_bf16` to enable bf16 training.
->
-> We are working hard to reduce the VRAM in RL training, LoRA support will be integrated in next updates.
+<a id="how-laconic-works"></a>
+## ⚙️ How LACONIC Works
 
-## Tutorial: Run Qwen2.5-VL GRPO on [Geometry3K](https://huggingface.co/datasets/hiyouga/geometry3k) Dataset in Just 3 Steps
+LACONIC adds a length-aware cost during RL training and adapts its strength online. For a response of length $L$ and a target budget $B$, it computes:
 
-![image](assets/qwen2_5_vl_7b_geo.png)
+$$
+\tilde r = r_{\text{task}} - \lambda c_{\text{len}}
+$$
+
+$$
+c_{\text{len}} = \max\left(0, \frac{L-B}{B}\right)
+$$
+
+$$
+\bar L > B \Rightarrow \lambda \text{ increases}, \qquad
+\bar L < B \Rightarrow \lambda \text{ decreases}
+$$
+
+Here, $c_{\text{len}}$ is zero for responses that stay within budget and grows only when the response exceeds the budget. The multiplier $\lambda$ is updated from the batch-average response length $\bar L$, so the penalty becomes stronger when outputs are too long and relaxes when they are already short enough.
+
+In practice, this is a simple feedback loop: LACONIC keeps the original task reward, penalizes only excess length, and automatically tunes the penalty scale to keep generations near the desired budget.
+
+<p align="center">
+  <img src="./assets/laconic_overview_full.png" alt="LACONIC overview" width="100%">
+</p>
+<p align="center"><em>Full training overview from the paper. At a high level, LACONIC combines task reward with a length-based cost and updates a single dual variable to keep average response length near the target budget.</em></p>
+
+<a id="laconic-is-easy-to-implement-and-deploy"></a>
+## 🧩 LACONIC Is Easy To Implement And Deploy
+
+LACONIC plugs into a standard RL-tuning pipeline with very little extra machinery.
+
+- **No special model components:** LACONIC does not require a new head, controller, or auxiliary model.
+- **Standard deployment path:** once training is done, inference uses the usual decoding stack.
+- **Minimal trainer-side logic:** each update adds one length-penalty computation and one scalar dual update.
+- **Small configuration surface:** the main knobs are the target budget $B$, the dual variable learning rate $\eta$, the initial value of the dual variable $\lambda$, and the ceiling $\Lambda$.
+
+If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer to a **plug-in trainer-side extension** than to a new system.
+
+<a id="quick-start"></a>
+## 🚀 Quick Start
 
 ### Installation
 
 ```bash
-git clone https://github.com/hiyouga/EasyR1.git
-cd EasyR1
+git clone https://github.com/Debugger001/Length-Aware-LLM.git
+cd Length-Aware-LLM
+git checkout LACONIC
+
+conda create -n laconic python=3.10 -y
+conda activate laconic
+
+pip install --upgrade pip
 pip install -e .
 ```
 
-### GRPO Training
+Main dependencies:
+
+- Python `>=3.9`
+- `transformers>=4.51.0,<4.53.0`
+- `vllm>=0.8.0`
+- `flash-attn>=2.4.3`
+- `ray[default]`
+
+If you plan to merge or upload checkpoints to Hugging Face, also install:
 
 ```bash
-bash examples/qwen2_5_vl_7b_geo3k_grpo.sh
+pip install huggingface_hub
 ```
 
-### Merge Checkpoint in Hugging Face Format
+### Run Training
+
+Example: DeepScaleR-1.5B-Preview.
 
 ```bash
-python3 scripts/model_merger.py --local_dir checkpoints/easy_r1/exp_name/global_step_1/actor
+bash examples/deepscaler_1_5b_preview.sh
 ```
 
-> [!TIP]
-> If you encounter issues with connecting to Hugging Face, consider using `export HF_ENDPOINT=https://hf-mirror.com`.
->
-> If you want to use SwanLab logger, consider using `bash examples/qwen2_5_vl_7b_geo3k_swanlab.sh`.
-
-## Custom Dataset
-
-Please refer to the example datasets to prepare your own dataset.
-
-- Text dataset: https://huggingface.co/datasets/hiyouga/math12k
-- Image-text dataset: https://huggingface.co/datasets/hiyouga/geometry3k
-- Multi-image-text dataset: https://huggingface.co/datasets/hiyouga/journeybench-multi-image-vqa
-- Text-image mixed dataset: https://huggingface.co/datasets/hiyouga/rl-mixed-dataset
-
-## How to Understand GRPO in EasyR1
-
-![image](assets/easyr1_grpo.png)
-
-- To learn about the GRPO algorithm, you can refer to [Hugging Face's blog](https://huggingface.co/docs/trl/v0.16.1/en/grpo_trainer).
-
-## How to Run 70B+ Model in Multi-node Environment
-
-1. Start the Ray head node.
+Example: DeepSeek-R1-Distill-Qwen-1.5B.
 
 ```bash
-ray start --head --port=6379 --dashboard-host=0.0.0.0
+bash examples/deepseek_r1_distill_qwen_1_5b.sh
 ```
 
-2. Start the Ray worker node and connect to the head node.
+Example: Qwen3-32B.
 
 ```bash
-ray start --address=<head_node_ip>:6379
+bash examples/qwen3_32b.sh
 ```
 
-3. Check the Ray resource pool.
+Example: Qwen3-8B.
 
 ```bash
-ray status
+bash examples/qwen3_8b.sh
 ```
 
-4. Run training script on the Ray head node only.
+These launchers override the base configuration in [`examples/config.yaml`](./examples/config.yaml). The main LACONIC-specific hyperparameters are:
+
+- `algorithm.threshold`: the target token budget $B$
+- `algorithm.lambda_len_init`: the initial value of the dual variable $\lambda$
+- `algorithm.dual_lr`: the dual update learning rate $\eta$
+- `algorithm.lambda_ceil`: the upper cap $\Lambda$ on $\lambda$
+
+Together, these control the target length and how aggressively the length penalty adapts during training. In the released-style settings highlighted here, we initialize $\lambda$ with $0$; for the main released DeepSeek-1.5B and Qwen3-32B settings, we use `algorithm.dual_lr=0.002`.
+
+### Merge A Checkpoint To Hugging Face Format
 
 ```bash
-bash examples/qwen2_5_vl_7b_geo3k_grpo.sh
+python scripts/model_merger.py \
+  --local_dir checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor
 ```
 
-See the **[veRL's official doc](https://verl.readthedocs.io/en/latest/start/multinode.html)** for more details about multi-node training and Ray debugger.
+This creates:
 
-## Other Baselines
+```text
+checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface/
+```
 
-We also reproduced the following two baselines of the [R1-V](https://github.com/deep-agent/R1-V) project.
-- [CLEVR-70k-Counting](examples/baselines/qwen2_5_vl_3b_clevr.sh): Train the Qwen2.5-VL-3B-Instruct model on counting problem.
-- [GeoQA-8k](examples/baselines/qwen2_5_vl_3b_geoqa8k.sh): Train the Qwen2.5-VL-3B-Instruct model on GeoQA problem.
+### Evaluate A Merged Model
 
-## Performance Baselines
+Math / reasoning evaluation:
 
-See [baselines.md](assets/baselines.md).
+```bash
+cd evaluation_r1
+python eval_llm.py \
+  --model_name ../checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+  --tasks '["aime","amc","math","minerva","olympiad_bench"]' \
+  --template training \
+  --tensor_parallel_size 4 \
+  --max_tokens 32768 \
+  --n_samples 16 \
+  --greedy False
+```
 
-## Awesome Work using EasyR1
+For GPQA, MMLU, and LSAT, use the same script with a different task list:
 
-- **MMR1**: Advancing the Frontiers of Multimodal Reasoning. [![[code]](https://img.shields.io/github/stars/LengSicong/MMR1)](https://github.com/LengSicong/MMR1)
-- **Vision-R1**: Incentivizing Reasoning Capability in Multimodal Large Language Models. [![[code]](https://img.shields.io/github/stars/Osilly/Vision-R1)](https://github.com/Osilly/Vision-R1) [![[arxiv]](https://img.shields.io/badge/arxiv-2503.06749-blue)](https://arxiv.org/abs/2503.06749)
-- **Seg-Zero**: Reasoning-Chain Guided Segmentation via Cognitive Reinforcement. [![[code]](https://img.shields.io/github/stars/dvlab-research/Seg-Zero)](https://github.com/dvlab-research/Seg-Zero) [![[arxiv]](https://img.shields.io/badge/arxiv-2503.06520-blue)](https://arxiv.org/abs/2503.06520)
-- **MetaSpatial**: Reinforcing 3D Spatial Reasoning in VLMs for the Metaverse. [![[code]](https://img.shields.io/github/stars/PzySeere/MetaSpatial)](https://github.com/PzySeere/MetaSpatial) [![[arxiv]](https://img.shields.io/badge/arxiv-2503.18470-blue)](https://arxiv.org/abs/2503.18470)
-- **Temporal-R1**: Envolving Temporal Reasoning Capability into LMMs via Temporal Consistent Reward. [![[code]](https://img.shields.io/github/stars/appletea233/Temporal-R1)](https://github.com/appletea233/Temporal-R1)
-- **NoisyRollout**: Reinforcing Visual Reasoning with Data Augmentation. [![[code]](https://img.shields.io/github/stars/John-AI-Lab/NoisyRollout)](https://github.com/John-AI-Lab/NoisyRollout) [![[arxiv]](https://img.shields.io/badge/arxiv-2504.13055-blue)](https://arxiv.org/pdf/2504.13055)
-- **GUI-R1**: A Generalist R1-Style Vision-Language Action Model For GUI Agents. [![[code]](https://img.shields.io/github/stars/ritzz-ai/GUI-R1)](https://github.com/ritzz-ai/GUI-R1) [![[arxiv]](https://img.shields.io/badge/arxiv-2504.10458-blue)](https://arxiv.org/abs/2504.10458)
-- **R1-Track**: Direct Application of MLLMs to Visual Object Tracking via Reinforcement Learning. [![[code]](https://img.shields.io/github/stars/Wangbiao2/R1-Track)](https://github.com/Wangbiao2/R1-Track)
-- **VisionReasoner**: Unified Visual Perception and Reasoning via Reinforcement Learning. [![[code]](https://img.shields.io/github/stars/dvlab-research/VisionReasoner)](https://github.com/dvlab-research/VisionReasoner) [![[arxiv]](https://img.shields.io/badge/arxiv-2505.12081-blue)](https://arxiv.org/abs/2505.12081)
-- **MM-UPT**: Unsupervised Post-Training for Multi-Modal LLM Reasoning via GRPO. [![[code]](https://img.shields.io/github/stars/waltonfuture/MM-UPT)](https://github.com/waltonfuture/MM-UPT) [![[arxiv]](https://img.shields.io/badge/arxiv-2505.22453-blue)](https://arxiv.org/pdf/2505.22453)
-- **RL-with-Cold-Start**: Advancing Multimodal Reasoning via Reinforcement Learning with Cold Start. [![[code]](https://img.shields.io/github/stars/waltonfuture/RL-with-Cold-Start)](https://github.com/waltonfuture/RL-with-Cold-Start) [![[arxiv]](https://img.shields.io/badge/arxiv-2505.22334-blue)](https://arxiv.org/pdf/2505.22334)
-- **ViGoRL**: Grounded Reinforcement Learning for Visual Reasoning. [![[code]](https://img.shields.io/github/stars/Gabesarch/grounded-rl)](https://github.com/Gabesarch/grounded-rl) [![[arxiv]](https://img.shields.io/badge/arxiv-2505.22334-blue)](https://arxiv.org/abs/2505.23678)
-- **Revisual-R1**: Advancing Multimodal Reasoning: From Optimized Cold Start to Staged Reinforcement Learning. [![[code]](https://img.shields.io/github/stars/CSfufu/Revisual-R1)](https://github.com/CSfufu/Revisual-R1) [![[arxiv]](https://img.shields.io/badge/arxiv-2506.04207-blue)](https://arxiv.org/abs/2506.04207)
-- **SophiaVL-R1**: Reinforcing MLLMs Reasoning with Thinking Reward. [![[code]](https://img.shields.io/github/stars/kxfan2002/SophiaVL-R1)](https://github.com/kxfan2002/SophiaVL-R1) [![[arxiv]](https://img.shields.io/badge/arxiv-2505.17018-blue)](https://arxiv.org/abs/2505.17018)
-- **Vision-Matters**: Simple Visual Perturbations Can Boost Multimodal Math Reasoning. [![[code]](https://img.shields.io/github/stars/YutingLi0606/Vision-Matters)](https://github.com/YutingLi0606/Vision-Matters) [![[arxiv]](https://img.shields.io/badge/arxiv-2506.09736-blue)](https://arxiv.org/abs/2506.09736)
-- **VTool-R1**: VLMs Learn to Think with Images via Reinforcement Learning on Multimodal Tool Use. [![[code]](https://img.shields.io/github/stars/VTOOL-R1/vtool-r1)](https://github.com/VTOOL-R1/vtool-r1) [![[arxiv]](https://img.shields.io/badge/arxiv-2505.19255-blue)](https://arxiv.org/abs/2505.19255)
+```bash
+cd evaluation_r1
+python eval_llm.py \
+  --model_name ../checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+  --tasks '["gpqa","mmlu","lsat"]' \
+  --template training \
+  --tensor_parallel_size 4 \
+  --max_tokens 32768 \
+  --n_samples 16 \
+  --greedy False
+```
 
-## TODO
+Code evaluation:
 
-- Support LoRA (high priority).
-- Support ulysses parallelism for VLMs (middle priority).
-- Support more VLM architectures.
+```bash
+cd evaluation_r1
+python eval_code.py \
+  --model_name ../checkpoints/Length-LLM/<experiment_name>/global_step_<step>/actor/huggingface \
+  --tasks '["humaneval_plus","livecodebench","codeforces"]' \
+  --tensor_parallel_size 4 \
+  --max_tokens 32768 \
+  --n_samples 16 \
+  --greedy False
+```
 
-> [!NOTE]
-> We will not provide scripts for supervised fine-tuning and inference in this project. If you have such requirements, we recommend using [LLaMA-Factory](https://github.com/hiyouga/LLaMA-Factory).
+<a id="repository-guide"></a>
+## 🗂️ Repository Guide
 
-### Known bugs
+The main LACONIC implementation lives in:
 
-These features are temporarily disabled for now, we plan to fix them one-by-one in the future updates.
+- [`verl/trainer/ray_trainer.py`](./verl/trainer/ray_trainer.py): LACONIC reward adjustment and dual update in the RL loop.
+- [`verl/trainer/config.py`](./verl/trainer/config.py): length-control hyperparameters.
+- [`examples/config.yaml`](./examples/config.yaml): base training config.
+- [`examples/`](./examples): experiment launch scripts.
+- [`evaluation_r1/eval_llm.py`](./evaluation_r1/eval_llm.py): reasoning benchmarks.
+- [`evaluation_r1/eval_code.py`](./evaluation_r1/eval_code.py): code benchmarks.
+- [`scripts/model_merger.py`](./scripts/model_merger.py): FSDP checkpoint merger and optional HF upload.
 
-- Vision language models are not compatible with ulysses parallelism yet.
+For reproducibility, use the **top-level repository code**. The nested `evaluation_r1/EasyR1/` directory is an inherited snapshot and is not the active implementation path.
 
-## Discussion Group
+This repository is adapted from [EasyR1](https://github.com/hiyouga/EasyR1), an RL training framework based on veRL.
 
-👋 Join our [WeChat group](assets/wechat.jpg).
+<a id="data-and-prompting"></a>
+## 🧾 Data And Prompting
 
-## FAQs
+For the main text-only reasoning runs in this branch, the dataset uses `problem` as the prompt field and `answer` as the supervision target. The codebase also supports `images` and `videos` for multimodal settings.
 
-> ValueError: Image features and image tokens do not match: tokens: 8192, features 9800
+- `problem`
+- `answer`
+- `images`
+- `videos`
 
-Increase the `data.max_prompt_length` or reduce the `data.max_pixels`.
+For the LACONIC math/reasoning runs, [`examples/config.yaml`](./examples/config.yaml) sets `data.format_prompt=./examples/format_prompt/math.jinja` and leaves `data.override_chat_template=null`. In other words, training uses the model's native chat template, while [`examples/format_prompt/math.jinja`](./examples/format_prompt/math.jinja) appends the task instruction to the `problem` field:
 
-> RuntimeError: CUDA Error: out of memory at /workspace/csrc/cumem_allocator.cpp:62
+```text
+{problem}
 
-Reduce the `worker.rollout.gpu_memory_utilization` and enable `worker.actor.offload.offload_params`.
+You FIRST think about the reasoning process as an internal monologue and then provide the final answer. The reasoning process MUST BE enclosed within <think> </think> tags. The final answer MUST BE put in \boxed{}.
+```
 
-> RuntimeError: 0 active drivers ([]). There should only be one.
+The matching evaluation wrapper is the `training` template in [`evaluation_r1/eval_llm.py`](./evaluation_r1/eval_llm.py). It formats evaluation prompts as:
 
-Uninstall `deepspeed` from the current python environment.
+```text
+system: You are a helpful assistant.
+user: {problem}
 
-## Citation
+You FIRST think about the reasoning process as an internal monologue enclosed in <think></think>, and THEN provide only the final answer. The final answer MUST be in \boxed{}.
+assistant:
+```
 
-Core contributors: [Yaowei Zheng](https://github.com/hiyouga), [Junting Lu](https://github.com/AL-377), [Shenzhi Wang](https://github.com/Shenzhi-Wang), [Zhangchi Feng](https://github.com/BUAADreamer), [Dongdong Kuang](https://github.com/Kuangdd01) and Yuwen Xiong
+Other prompt files included in the repository:
 
-We also thank Guangming Sheng and Chi Zhang for helpful discussions.
+- [`examples/format_prompt/r1v.jinja`](./examples/format_prompt/r1v.jinja)
+- [`examples/format_prompt/dapo.jinja`](./examples/format_prompt/dapo.jinja)
+
+Reward functions:
+
+- [`examples/reward_function/math.py`](./examples/reward_function/math.py)
+- [`examples/reward_function/r1v.py`](./examples/reward_function/r1v.py)
+- [`examples/reward_function/dapo.py`](./examples/reward_function/dapo.py)
+
+<a id="planned-model-releases"></a>
+## 🤗 Model Releases
+
+Current and planned public checkpoints:
+
+| Model | Base Model | Budget | Status |
+| --- | --- | --- | --- |
+| `LACONIC-Qwen3-32B-3000` | `Qwen/Qwen3-32B` | 3000 | Planned |
+| `LACONIC-DeepScaleR-1.5B-2000` | `agentica-org/DeepScaleR-1.5B-Preview` | 2000 | Planned |
+| [`LACONIC-DeepSeek-R1-Distill-1.5B-1500`](https://huggingface.co/lc1111/LACONIC-DeepSeek-R1-Distill-1.5B-1500) | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Released |
+
+Released checkpoints link directly to Hugging Face. Additional checkpoints and model cards will be added here as they go live.
+
+<a id="citation"></a>
+## 📚 Citation
 
 ```bibtex
-@misc{zheng2025easyr1,
-  title        = {EasyR1: An Efficient, Scalable, Multi-Modality RL Training Framework},
-  author       = {Yaowei Zheng, Junting Lu, Shenzhi Wang, Zhangchi Feng, Dongdong Kuang, Yuwen Xiong},
-  howpublished = {\url{https://github.com/hiyouga/EasyR1}},
-  year         = {2025}
+@misc{liu2026laconic,
+  title        = {LACONIC: Length-Aware Constrained Reinforcement Learning for LLM},
+  author       = {Chang Liu and Yiran Zhao and Lawrence Liu and Yaoqi Ye and Csaba Szepesv{\'a}ri and Lin F. Yang},
+  year         = {2026},
+  eprint       = {2602.14468},
+  archivePrefix = {arXiv},
+  primaryClass = {cs.LG},
+  url          = {https://arxiv.org/abs/2602.14468}
 }
 ```
 
-We recommend to also cite the original work.
+## 🙏 Acknowledgments
 
-```bibtex
-@article{sheng2024hybridflow,
-  title   = {HybridFlow: A Flexible and Efficient RLHF Framework},
-  author  = {Guangming Sheng and Chi Zhang and Zilingfeng Ye and Xibin Wu and Wang Zhang and Ru Zhang and Yanghua Peng and Haibin Lin and Chuan Wu},
-  year    = {2024},
-  journal = {arXiv preprint arXiv: 2409.19256}
-}
-```
+This project is adapted from [EasyR1](https://github.com/hiyouga/EasyR1), which itself builds on veRL. We thank the EasyR1 and veRL authors for releasing the training framework that made this work possible.
