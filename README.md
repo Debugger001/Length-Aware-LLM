@@ -18,11 +18,14 @@ This repository includes the training, evaluation, and checkpoint export code fo
 
 ## ✨ Key Features
 
-This section covers both **LACONIC as a method** and **this repository as an implementation**.
+**Method**
 
-- **🧠 Adaptive length control:** LACONIC combines task reward with an adaptive length-based cost to enforce a target token budget during RL training.
+- **🧠 Adaptive length control:** LACONIC uses a budget-aware penalty that is adjusted online during RL training.
 - **📉 Large token savings:** it can substantially reduce response length while preserving task performance.
 - **🚀 Standard deployment:** the trained model uses the usual decoding stack, with no inference-time control logic required.
+
+**Repository**
+
 - **🏋️ Training scripts:** runnable examples for the released LACONIC settings.
 - **🧪 Evaluation scripts:** reasoning and code evaluation utilities, including the same evaluation path used for math, GPQA, MMLU, and LSAT.
 - **🧾 Prompt and reward templates:** reference prompt formatting and reward implementations for the reported setups.
