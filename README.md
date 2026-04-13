@@ -30,8 +30,6 @@ In one sentence: **LACONIC makes unnecessary output tokens expensive during RL t
 
 ## Headline Results
 
-According to the paper abstract, LACONIC:
-
 | Setting | Main Outcome |
 | --- | --- |
 | Mathematical reasoning | Preserves or improves `pass@1` while reducing output length by **over 50%** |
@@ -42,10 +40,10 @@ Paper link: [arXiv:2602.14468](https://arxiv.org/abs/2602.14468)
 
 ## How LACONIC Works
 
-The idea can be summarized in three lines:
+The core idea is:
 
 $$
-\text{objective} = r_{\text{task}} - \lambda \, c_{\text{len}}
+\text{objective} = r_{\text{task}} - \lambda c_{\text{len}}
 $$
 
 $$
@@ -57,7 +55,7 @@ $$
 \bar L < B \Rightarrow \lambda \text{ decreases}
 $$
 
-That is the whole method:
+That is essentially the whole method:
 
 1. compute the usual task reward
 2. subtract an extra cost only when the output is too long
@@ -68,6 +66,7 @@ where:
 - $r_{\text{task}}$ is the usual task reward
 - $L$ is the response length
 - $B$ is the target token budget
+- $\bar L$ is the average response length in the current batch
 - $c_{\text{len}}$ is the over-length cost
 - $\lambda$ controls how expensive extra length is
 
@@ -80,7 +79,12 @@ The interpretation is simple:
 
 So LACONIC is just **standard RL plus an adaptive cost on overlong outputs**.
 
-## Why It Is Easy To Implement And Deploy
+<p align="center">
+  <img src="./assets/laconic_overview_full.png" alt="LACONIC overview" width="100%">
+</p>
+<p align="center"><em>Full training overview from the paper. In practice, the key idea is simple: optimize task reward minus a length cost, then update a single dual variable to keep average response length near the target budget.</em></p>
+
+## LACONIC Is Easy To Implement And Deploy
 
 LACONIC is intentionally lightweight.
 
@@ -91,11 +95,6 @@ LACONIC is intentionally lightweight.
 - **Small configuration surface:** the main knobs are just the target budget `B` and a few scalar hyperparameters such as `dual_lr`, `penalty_cap`, and `hit_cap`.
 
 If you already have an RL fine-tuning pipeline, LACONIC is closer to a **small reward modification** than to a new training stack.
-
-<p align="center">
-  <img src="./assets/laconic_overview.png" alt="LACONIC overview" width="88%">
-</p>
-<p align="center"><em>Policy updates optimize task reward minus a length-aware cost, while the dual update adjusts the strength of that cost to keep generations near the desired token budget.</em></p>
 
 ## Why It Matters
 
