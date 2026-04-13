@@ -15,6 +15,16 @@ This repository contains the code used for the paper and builds on top of EasyR1
 - Model checkpoints: coming soon
 - Project page: coming soon
 
+## At A Glance
+
+LACONIC trains LLMs to be concise **during** reinforcement learning instead of trying to force brevity only at inference time. The core idea is simple:
+
+- reward the model for solving the task
+- charge a cost when the response exceeds a target token budget
+- adapt that cost automatically during training
+
+The result is a model that learns to stay short **without** changing the decoding pipeline at deployment time.
+
 ## Why LACONIC
 
 - Enforces a target token budget directly during RL training.
@@ -31,6 +41,18 @@ According to the paper abstract, LACONIC:
 - maintains out-of-domain performance on general knowledge and multilingual benchmarks with 44% fewer tokens
 - integrates into standard RL tuning with no inference changes and minimal deployment overhead
 
+## Results At A Glance
+
+The paper reports the following headline outcomes:
+
+| Setting | Main Outcome |
+| --- | --- |
+| Mathematical reasoning | Preserves or improves `pass@1` with **over 50% fewer output tokens** |
+| General knowledge + multilingual | Maintains out-of-domain performance with **44% fewer tokens** |
+| Deployment | **No inference-time changes** and minimal extra serving complexity |
+
+Full benchmark tables, plots, and checkpoint-specific summaries will be added here as the public release is finalized.
+
 ## Paper
 
 **LACONIC: Length-Aware Constrained Reinforcement Learning for LLM**  
@@ -40,6 +62,40 @@ Chang Liu, Yiran Zhao, Lawrence Liu, Yaoqi Ye, Csaba Szepesvári, Lin F. Yang
 ## Overview
 
 Reinforcement learning often improves reasoning quality at the cost of substantially longer outputs, which increases latency and serving cost. LACONIC addresses this by introducing a constrained RL objective that penalizes excessive response length relative to a target token budget. The penalty scale is adjusted adaptively during training, which makes the method more robust than fixed heuristic reward shaping.
+
+## Intuition
+
+Standard RL can accidentally reward verbosity: if longer chains of thought help a model find better answers during training, the model may keep getting longer even when those extra tokens are not worth the latency and cost.
+
+LACONIC changes this by adding a second training signal:
+
+- **task reward** says "solve the problem"
+- **length cost** says "do not spend more tokens than needed"
+
+Instead of manually fixing that tradeoff once and hoping it works, LACONIC adjusts the strength of the length cost during training. If outputs are too long, the cost becomes stronger. If the model becomes too compressed and hurts performance, the optimization can relax that pressure.
+
+In one sentence: **LACONIC teaches the model to treat tokens as a budget.**
+
+## Simple Method Illustration
+
+```mermaid
+flowchart LR
+    A["Prompt"] --> B["Model generates response"]
+    B --> C["Task reward"]
+    B --> D["Length cost if response exceeds target budget"]
+    C --> E["Combined training objective"]
+    D --> E
+    E --> F["Policy update"]
+    F --> G["Adaptive length multiplier updates over time"]
+    G --> D
+```
+
+## Why This Matters
+
+- Shorter responses reduce inference latency.
+- Shorter responses reduce serving cost.
+- Training-time length control is easier to deploy than ad hoc inference-time heuristics.
+- The method is compatible with standard RL fine-tuning pipelines.
 
 ## What Is In This Repo
 
@@ -72,6 +128,16 @@ The main public hyperparameters are:
 - `algorithm.penalty_cap`: upper bound on the per-sample length penalty.
 - `algorithm.hit_cap`: extra penalty for responses that hit `max_response_length`.
 - `algorithm.lambda_floor`, `algorithm.lambda_ceil`: clamp range for the dual variable.
+
+### A Concrete Mental Model
+
+Suppose the target budget is 500 tokens:
+
+- a 350-token high-quality answer gets task reward and essentially no length penalty
+- a 900-token answer gets task reward, but also pays an over-budget cost
+- if the model keeps overshooting the budget across training, LACONIC increases the strength of that cost
+
+This lets the model discover concise reasoning behavior instead of relying on a hand-tuned fixed penalty.
 
 ## Release Snapshot
 
@@ -317,6 +383,17 @@ Suggested subsections for the final table set:
 - multilingual evaluation
 - code and function-calling evaluation
 - length reduction statistics
+
+### Recommended Final Presentation
+
+For the public release, this section will be strongest if each model gets a compact summary row with:
+
+- base model
+- target token budget
+- benchmark score
+- average output length
+- relative token reduction versus baseline
+- link to checkpoint
 
 ## Figures
 
