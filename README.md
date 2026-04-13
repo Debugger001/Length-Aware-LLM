@@ -46,19 +46,9 @@ Just as importantly, LACONIC is **extremely easy to implement and deploy**:
 
 ## Why LACONIC
 
-The core value of LACONIC is simple: it can significantly reduce response length while preserving task performance.
+Reinforcement learning often improves reasoning performance, but it also tends to make responses much longer. Those extra tokens increase latency and serving cost.
 
-This matters because reinforcement learning often improves reasoning quality but also makes responses much longer. Those extra tokens increase latency and serving cost.
-
-LACONIC addresses that tradeoff directly during RL training:
-
-- it preserves the usual task reward
-- it adds a cost only when the response becomes too long
-- it adjusts that cost automatically to keep outputs near a target budget
-
-In one sentence: **LACONIC significantly reduces response length while preserving task performance.**
-
-This matters because:
+LACONIC addresses that tradeoff during RL training by keeping the usual task reward while adding an adaptive cost for overlong outputs. In practice, **LACONIC significantly reduces response length while preserving task performance.**
 
 - shorter outputs reduce inference latency
 - shorter outputs reduce serving cost
