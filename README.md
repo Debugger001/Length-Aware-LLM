@@ -50,10 +50,12 @@ Reinforcement learning often improves reasoning performance, but it also tends t
 
 LACONIC addresses that tradeoff during RL training by keeping the usual task reward while adding an adaptive cost for overlong outputs. In practice, **LACONIC significantly reduces response length while preserving task performance.**
 
-- shorter outputs reduce inference latency
-- shorter outputs reduce serving cost
-- training-time length control is easier to deploy than brittle decoding-time heuristics
-- the method integrates naturally into standard RL fine-tuning workflows
+The practical benefits are immediate:
+
+- shorter outputs mean lower inference latency
+- shorter outputs mean lower serving cost
+- controlling length during training is simpler than relying on brittle decoding-time heuristics
+- the method fits naturally into standard RL fine-tuning pipelines
 
 ## Headline Results
 
@@ -155,7 +157,7 @@ pip install huggingface_hub
 
 ### Run Training
 
-Example: DeepScaleR-1.5B-Preview with a target budget of 1500 tokens.
+Example: DeepScaleR-1.5B-Preview.
 
 ```bash
 bash examples/deepscale_1_5b_preview_deepscale.sh
@@ -238,16 +240,33 @@ For reproducibility, use the **top-level repository code**. The nested `evaluati
 
 ## Data And Prompting
 
-The default config expects dataset fields such as:
+For the main text-only reasoning runs in this branch, the dataset uses `problem` as the prompt field and `answer` as the supervision target. The codebase also supports `images` and `videos` for multimodal settings.
 
 - `problem`
 - `answer`
 - `images`
 - `videos`
 
-Prompt templates:
+For the LACONIC math/reasoning runs, [`examples/config.yaml`](./examples/config.yaml) sets `data.format_prompt=./examples/format_prompt/math.jinja` and leaves `data.override_chat_template=null`. In other words, training uses the model's native chat template, while [`examples/format_prompt/math.jinja`](./examples/format_prompt/math.jinja) appends the task instruction to the `problem` field:
 
-- [`examples/format_prompt/math.jinja`](./examples/format_prompt/math.jinja)
+```text
+{problem}
+
+You FIRST think about the reasoning process as an internal monologue and then provide the final answer. The reasoning process MUST BE enclosed within <think> </think> tags. The final answer MUST BE put in \boxed{}.
+```
+
+The matching evaluation wrapper is the `training` template in [`evaluation_r1/eval_llm.py`](./evaluation_r1/eval_llm.py). It formats evaluation prompts as:
+
+```text
+system: You are a helpful assistant.
+user: {problem}
+
+You FIRST think about the reasoning process as an internal monologue enclosed in <think></think>, and THEN provide only the final answer. The final answer MUST be in \boxed{}.
+assistant:
+```
+
+Other prompt files included in the repository:
+
 - [`examples/format_prompt/r1v.jinja`](./examples/format_prompt/r1v.jinja)
 - [`examples/format_prompt/dapo.jinja`](./examples/format_prompt/dapo.jinja)
 
@@ -259,13 +278,13 @@ Reward functions:
 
 ## Planned Model Releases
 
-The first public checkpoints will likely include variants such as:
+The first public checkpoints are currently planned to include:
 
 | Model | Base Model | Budget | Status |
 | --- | --- | --- | --- |
-| `LACONIC-DeepScaleR-1.5B-1500` | `agentica-org/DeepScaleR-1.5B-Preview` | 1500 | Planned |
-| `LACONIC-DeepSeek-R1-Distill-Qwen-1.5B-1500` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Planned |
-| `LACONIC-Qwen2.5-1.5B-550` | `Qwen/Qwen2.5-1.5B-Instruct` | 550 | Planned |
+| `LACONIC-Qwen3-32B-3000` | `Qwen/Qwen3-32B` | 3000 | Planned |
+| `LACONIC-DeepScaleR-1.5B-2000` | `agentica-org/DeepScaleR-1.5B-Preview` | 2000 | Planned |
+| `LACONIC-DeepSeek-R1-Distill-1.5B-1500` | `deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B` | 1500 | Planned |
 
 Model checkpoints and model cards will be added here as the public release is finalized.
 
