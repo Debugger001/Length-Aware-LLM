@@ -69,10 +69,10 @@ Paper link: [arXiv:2602.14468](https://arxiv.org/abs/2602.14468)
 
 ## How LACONIC Works
 
-The core idea is:
+LACONIC adds a length-aware cost during RL training and adapts its strength online. For a response of length $L$ and a target budget $B$, it computes:
 
 $$
-\text{objective} = r_{\text{task}} - \lambda c_{\text{len}}
+\tilde r = r_{\text{task}} - \lambda c_{\text{len}}
 $$
 
 $$
@@ -84,46 +84,26 @@ $$
 \bar L < B \Rightarrow \lambda \text{ decreases}
 $$
 
-That is essentially the whole method:
+Here, $c_{\text{len}}$ is zero for responses that stay within budget and grows only when the response exceeds the budget. The multiplier $\lambda$ is updated from the batch-average response length $\bar L$, so the penalty becomes stronger when outputs are too long and relaxes when they are already short enough.
 
-1. compute the usual task reward
-2. subtract an extra cost only when the output is too long
-3. adjust one scalar, $\lambda$, so the average response length stays near the target budget
-
-where:
-
-- $r_{\text{task}}$ is the usual task reward
-- $L$ is the response length
-- $B$ is the target token budget
-- $\bar L$ is the average response length in the current batch
-- $c_{\text{len}}$ is the over-length cost
-- $\lambda$ controls how expensive extra length is
-
-The interpretation is simple:
-
-- if a response stays within budget, the length cost is zero
-- if a response goes over budget, it pays an extra cost
-- if the model keeps being too long on average, LACONIC raises $\lambda$
-- if the model is already short enough, LACONIC relaxes $\lambda$
-
-So LACONIC is just **standard RL plus an adaptive cost on overlong outputs**.
+In practice, this is a simple feedback loop: LACONIC keeps the original task reward, penalizes only excess length, and automatically tunes the penalty scale to keep generations near the desired budget.
 
 <p align="center">
   <img src="./assets/laconic_overview_full.png" alt="LACONIC overview" width="100%">
 </p>
-<p align="center"><em>Full training overview from the paper. In practice, the key idea is simple: optimize task reward minus a length cost, then update a single dual variable to keep average response length near the target budget.</em></p>
+<p align="center"><em>Full training overview from the paper. At a high level, LACONIC combines task reward with a length-based cost and updates a single dual variable to keep average response length near the target budget.</em></p>
 
 ## LACONIC Is Easy To Implement And Deploy
 
-LACONIC is intentionally lightweight.
+LACONIC plugs into a standard RL-tuning pipeline with very little extra machinery.
 
-- **No model changes:** the policy architecture stays the same.
-- **No inference changes:** once training is done, decoding is unchanged.
+- **No architecture changes:** the policy, reference model, and serving stack stay the same.
+- **No inference-time changes:** once training is done, decoding is unchanged.
 - **No auxiliary model:** there is no extra predictor or controller at serving time.
-- **Minimal training change:** conceptually, it is one extra reward term and one scalar update rule.
+- **Minimal training logic:** each update adds one length-penalty computation and one scalar dual update.
 - **Small configuration surface:** the main knobs are just the target budget `B` and a few scalar hyperparameters such as `dual_lr`, `penalty_cap`, and `hit_cap`.
 
-If you already have an RL fine-tuning pipeline, LACONIC is closer to a **small reward modification** than to a new training stack.
+If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer to a **lightweight trainer-side extension** than to a new system.
 
 ## Quick Start
 
