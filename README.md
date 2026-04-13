@@ -94,7 +94,7 @@ LACONIC plugs into a standard RL-tuning pipeline with very little extra machiner
 - **No special model components:** LACONIC does not require a new head, controller, or auxiliary model.
 - **Standard deployment path:** once training is done, inference uses the usual decoding stack.
 - **Minimal trainer-side logic:** each update adds one length-penalty computation and one scalar dual update.
-- **Small configuration surface:** the main knobs are the target budget `B`, the dual variable learning rate `\eta`, the initial value of the dual variable `\lambda`, and the ceiling `\Lambda`.
+- **Small configuration surface:** the main knobs are the target budget $B$, the dual variable learning rate $\eta$, the initial value of the dual variable $\lambda$, and the ceiling $\Lambda$.
 
 If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer to a **plug-in trainer-side extension** than to a new system.
 
@@ -157,12 +157,12 @@ bash examples/qwen3_8b.sh
 
 These launchers override the base configuration in [`examples/config.yaml`](./examples/config.yaml). The main LACONIC-specific hyperparameters are:
 
-- `algorithm.threshold`: the target token budget `B`
-- `algorithm.lambda_len_init`: the initial value of the dual variable `\lambda`
-- `algorithm.dual_lr`: the dual update learning rate `\eta`
-- `algorithm.lambda_ceil`: the upper cap `\Lambda` on `\lambda`
+- `algorithm.threshold`: the target token budget $B$
+- `algorithm.lambda_len_init`: the initial value of the dual variable $\lambda$
+- `algorithm.dual_lr`: the dual update learning rate $\eta$
+- `algorithm.lambda_ceil`: the upper cap $\Lambda$ on $\lambda$
 
-Together, these control the target length and how aggressively the length penalty adapts during training. In the released-style settings highlighted here, we initialize `\lambda` with `0`; for the main released DeepSeek-1.5B and Qwen3-32B settings, we use `algorithm.dual_lr=0.002`.
+Together, these control the target length and how aggressively the length penalty adapts during training. In the released-style settings highlighted here, we initialize $\lambda$ with $0$; for the main released DeepSeek-1.5B and Qwen3-32B settings, we use `algorithm.dual_lr=0.002`.
 
 ### Merge A Checkpoint To Hugging Face Format
 
