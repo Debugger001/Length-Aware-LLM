@@ -1,7 +1,7 @@
 # LACONIC: Length-Aware Constrained Reinforcement Learning for LLMs
 
 [![Paper](https://img.shields.io/badge/arXiv-2602.14468-b31b1b.svg)](https://arxiv.org/abs/2602.14468)
-[![Code](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/Debugger001/Length-Aware-LLM)
+[![Code](https://img.shields.io/badge/Code-GitHub-black.svg)](https://github.com/Debugger001/LACONIC-LLM)
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](./LICENSE)
 
 Official implementation of **LACONIC**, a length-aware reinforcement learning method for making LLM responses substantially shorter while preserving task performance.
@@ -14,7 +14,7 @@ This repository includes the training, evaluation, and checkpoint export code fo
 
 ## 🔗 Quick Links
 
-📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/Length-Aware-LLM) · 🤗 [DeepSeek-1.5B checkpoint](https://huggingface.co/lc1111/LACONIC-DeepSeek-R1-Distill-1.5B-1500) · More releases coming soon
+📄 [Paper](https://arxiv.org/abs/2602.14468) · 💻 [Code](https://github.com/Debugger001/LACONIC-LLM) · 🤗 [Hugging Face org](https://huggingface.co/laconic-llm) · More releases coming soon
 
 ## ✨ Key Features
 
@@ -104,8 +104,8 @@ If you already have a PPO/GRPO-style RL fine-tuning pipeline, LACONIC is closer 
 ### Installation
 
 ```bash
-git clone https://github.com/Debugger001/Length-Aware-LLM.git
-cd Length-Aware-LLM
+git clone https://github.com/Debugger001/LACONIC-LLM.git
+cd LACONIC-LLM
 git checkout LACONIC
 
 conda create -n laconic python=3.10 -y
